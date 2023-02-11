@@ -1,0 +1,7 @@
+[package]
+name = "token_combinator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+token_combinator_macros = { path = "../macros" }

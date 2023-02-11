@@ -1,0 +1,10 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "location/Cargo.toml",
+    "lexer/Cargo.toml",
+    "parser/Cargo.toml",
+    "semantic_parser/Cargo.toml",
+    "token_combinator/lib/Cargo.toml",
+    "token_combinator/macros/Cargo.toml"
+  ]
+}
