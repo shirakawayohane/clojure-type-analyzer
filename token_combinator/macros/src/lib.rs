@@ -66,23 +66,20 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                 quote! {}
             }
         };
-        let token_life_parameter_with_comma = if let Some(l) = token_lifetime_parameter.borrow().clone() {
-            quote! { #l , }
+        let token_life_parameter_with_plus = if token_life_parameter.is_empty() {
+            quote!{}
         } else {
-            if item.generics.params.len() > 0 {
-                quote! { 'a, }
-            } else {
-                quote! {}
-            }
+            quote! { #token_life_parameter + }
         };
-        let token_life_parameter_with_angles = if let Some(l) = token_lifetime_parameter.borrow().clone() {
-            quote! { < #l > }
+        let token_life_parameter_with_comma = if token_life_parameter.is_empty() {
+            quote!{}
         } else {
-            if item.generics.params.len() > 0 {
-                quote! { <'a> }
-            } else {
-                quote! {}
-            }
+            quote! { #token_life_parameter , }
+        };
+        let token_life_parameter_with_angles = if token_life_parameter.is_empty() {
+            quote!{}
+        } else {
+            quote! { < #token_life_parameter > }
         };
 
         let pattern_match_stream = match fields {
@@ -112,19 +109,23 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
             Fields::Unit => quote! { () }
         };
 
-        let lower_variant_name = variant_name.to_string().to_lowercase();
+        let lower_variant_name = variant_name.to_string().to_case(convert_case::Case::Snake).replace("_", " ");
         let ret = quote! {
-            pub fn #parser_name<W>(tokens: & #token_life_parameter [W]) -> token_combinator::TokenParseResult<#token_life_parameter_with_comma #enum_name, #return_type_stream , W>
+            pub fn #parser_name<#token_life_parameter_with_comma W>(tokens: & #token_life_parameter [W]) -> token_combinator::TokenParseResult<#token_life_parameter_with_comma #enum_name, #return_type_stream , W>
             where
-                W: std::ops::Deref<Target = #enum_name #token_life_parameter_with_angles>,
+                W: #token_life_parameter_with_plus Copy + Into<#enum_name #token_life_parameter_with_angles >, 
             {
-                let token = &tokens[0];
-                if let #enum_name::#variant_name #pattern_match_stream = **token {
+                let wrapped_token = &tokens[0];
+                let token = <W as std::convert::Into<#enum_name>>::into(*wrapped_token);
+                if let #enum_name::#variant_name #pattern_match_stream = token {
                     Ok((&tokens[1..], #tuple_value_stream))
                 } else {
-                    Err(token_combinator::TokenParseError::Expects {
-                        expects: #lower_variant_name.to_string(),
-                        found: token
+                    Err(token_combinator::TokenParseError{
+                        errors: vec![token_combinator::TokenParseErrorKind::Expects {
+                            expects: #lower_variant_name,
+                            found: token
+                        }],
+                        tokens_consumed: 0
                     })
                 }
             }
@@ -132,21 +133,9 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
         ret
     });
 
-    let generics_token_iter = if item.generics.params.len() > 0 {
-        let generics_params = item.generics.params.iter().map(|param| {
-            quote! { #param }
-        });
-        quote! {
-            < #(#generics_params),* >
-        }
-    } else {
-        quote! {}
-    };
-
-    println!("{}", &generics_token_iter);
-
     let expanded = quote! {
-        impl #generics_token_iter #enum_name #generics_token_iter {
+        pub mod parser {
+            use super::*;
             #(#parser_functions)*
         }
     };

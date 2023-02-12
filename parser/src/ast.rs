@@ -1,5 +1,3 @@
-use location::Span;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,

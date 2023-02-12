@@ -1,7 +1,7 @@
 use std::fmt::{Display, Write};
 
 use location::{Located, Span};
-use token_combinator::{GetKind, ParseToken};
+use token_combinator::ParseToken;
 
 #[derive(Debug, PartialEq, Clone, Copy, ParseToken)]
 pub enum Token<'a> {
@@ -20,4 +20,10 @@ pub enum Token<'a> {
     FloatLiteral(f64),
     Keyword(Span<'a>),
     Symbol(Span<'a>),
+}
+
+impl<'a> From<Located<'a, Token<'a>>> for Token<'a> {
+    fn from(value: Located<'a, Token<'a>>) -> Token<'a> {
+        value.value
+    }
 }
