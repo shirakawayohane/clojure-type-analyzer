@@ -1,8 +1,10 @@
 mod alt;
 mod tuple;
+mod permutation;
 
 pub use tuple::tuple;
 pub use alt::alt;
+pub use permutation::permutation;
 pub use token_combinator_macros::TokenParser;
 
 // T stands for Token

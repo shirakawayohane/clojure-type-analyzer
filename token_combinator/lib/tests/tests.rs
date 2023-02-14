@@ -28,6 +28,21 @@ fn tuple_test() {
     assert_eq!(c, "piyo");
 }
 
+
+#[test]
+fn permutation_test() {
+    let tokens = &[
+        Token::Ident("hoge"),
+        Token::Number(10),
+        Token::String("piyo"),
+    ];
+    let (tokens, (a, b, c)) = permutation((number, string, ident))(tokens).unwrap();
+    assert!(tokens.is_empty());
+    assert_eq!(a, 10);
+    assert_eq!(c, "hoge");
+    assert_eq!(b, "piyo");
+}
+
 #[test]
 fn alt_test() {
     let tokens = &[Token::Ident("ident")];
