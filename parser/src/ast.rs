@@ -1,3 +1,5 @@
+use location::Located;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,
@@ -16,14 +18,14 @@ pub enum AST<'a> {
     FloatLiteral(f64),
     StringLiteral(&'a str),
     RegexLiteral(&'a str),
-    List(Vec<AST<'a>>),
-    Vector(Vec<AST<'a>>),
-    Set(Vec<AST<'a>>),
-    Map(Vec<(AST<'a>, AST<'a>)>),
+    List(Vec<Located<'a, AST<'a>>>),
+    Vector(Vec<Located<'a, AST<'a>>>),
+    Set(Vec<Located<'a, AST<'a>>>),
+    Map(Vec<(Located<'a, AST<'a>>, Located<'a, AST<'a>>)>),
     Symbol(Symbol<'a>),
     Keyword(Keyword<'a>),
-    Quoted(Box<AST<'a>>),
-    SyntaxQuoted(Box<AST<'a>>),
-    Metadata(Vec<AST<'a>>),
-    Root(Vec<AST<'a>>)
+    Quoted(Box<Located<'a, AST<'a>>>),
+    SyntaxQuoted(Box<Located<'a, AST<'a>>>),
+    Metadata(Vec<Located<'a, AST<'a>>>),
+    Root(Vec<Located<'a, AST<'a>>>)
 }
