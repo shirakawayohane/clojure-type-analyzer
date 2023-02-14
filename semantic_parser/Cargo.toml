@@ -12,3 +12,5 @@ thiserror = "1.0.38"
 nom-greedyerror = "0.4.0"
 parser = {path = "../parser"}
 location = { path = "../location" }
+token_combinator = { path = "../token_combinator/lib" }
+anyhow = "1.0.69"
