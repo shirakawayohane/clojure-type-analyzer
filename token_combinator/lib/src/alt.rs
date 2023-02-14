@@ -53,4 +53,4 @@ macro_rules! alt_trait {
   }
 }
 
-alt_trait!(12);
+alt_trait!(24);

@@ -1,7 +1,7 @@
 use token_combinator::tuple;
-use token_combinator_macros::ParseToken;
+use token_combinator_macros::TokenParser;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ParseToken)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TokenParser)]
 pub enum Token<'a> {
     LParen,
     RParen,
@@ -76,6 +76,30 @@ fn opt_test() {
     let (rest, ident_str) = opt(string)(tokens).unwrap();
     assert!(rest.len() == 1);
     assert_eq!(ident_str, None);
+}
+
+#[test]
+fn delimited_test() {
+    let tokens = &[Token::LParen, Token::Ident("a"), Token::RParen];
+    let (rest, ident_str) = delimited(l_paren, ident, r_paren)(tokens).unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(ident_str, "a");
+}
+
+#[test]
+fn preceded_test() {
+    let tokens = &[Token::LParen, Token::Ident("a")];
+    let (rest, ident_str) = preceded(l_paren, ident)(tokens).unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(ident_str, "a");
+}
+
+#[test]
+fn terminated_test() {
+    let tokens = &[Token::Ident("a"), Token::RParen];
+    let (rest, ident_str) = terminated(ident, r_paren)(tokens).unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(ident_str, "a");
 }
 
 #[test]

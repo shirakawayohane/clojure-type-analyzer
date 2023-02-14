@@ -46,4 +46,4 @@ macro_rules! tuple_trait {
   }
 }
 
-tuple_trait!(12);
+tuple_trait!(16);

@@ -3,7 +3,7 @@ mod tuple;
 
 pub use tuple::tuple;
 pub use alt::alt;
-pub use token_combinator_macros::ParseToken;
+pub use token_combinator_macros::TokenParser;
 
 // T stands for Token
 // K stands for Kind
@@ -129,6 +129,31 @@ pub fn delimited<'a, T, O1, O2, O3, W: 'a>(
         let (rest, _) = l(tokens)?;
         let (rest, result) = main(rest)?;
         let (rest, _) = r(rest)?;
+
+        Ok((rest, result))
+    }
+}
+
+pub fn preceded<'a, T, O1, O2, W: 'a>(
+    mut first: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O1, W>,
+    mut second: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O2, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O2, W> {
+    move |tokens: &'a [W]| {
+        let (rest, _) = first(tokens)?;
+        let (rest, result) = second(rest)?;
+
+        Ok((rest, result))
+    }
+}
+
+
+pub fn terminated<'a, T, O1, O2, W: 'a>(
+    mut first: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O1, W>,
+    mut second: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O2, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O1, W> {
+    move |tokens: &'a [W]| {
+        let (rest, result) = first(tokens)?;
+        let (rest, _) = second(rest)?;
 
         Ok((rest, result))
     }

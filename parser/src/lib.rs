@@ -1,100 +1,140 @@
 mod ast;
 
-use std::{
-    iter::{Enumerate, Map},
-    ops::Deref,
-    slice::Iter,
-};
-
-use ast::Symbol;
 pub use ast::AST;
 use lexer::Token;
-use location::{Located, Span};
-use token_combinator::{delimited, TokenParseError, TokenParseResult, TokenParser};
+use location::Located;
+use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult};
 
 type Tokens<'a> = &'a [Located<'a, Token<'a>>];
-
-type Output<'a> = Located<'a, AST<'a>>;
 
 type ParseResult<'a> = TokenParseResult<'a, Token<'a>, AST<'a>, Located<'a, Token<'a>>>;
 
 use lexer::token::parser::*;
 
 fn parse_symbol(tokens: Tokens) -> ParseResult {
-    let (rest, name) = symbol(tokens)?;
-    let splited = name.split('/').collect::<Vec<_>>();
-    if splited.len() == 1 {
-        let name = splited[0];
-        return Ok((rest, AST::Symbol(ast::Symbol { ns: None, name })));
-    } else if splited.len() == 2 {
-        let ns = splited[0];
-        let name = splited[1];
-        return Ok((rest, AST::Symbol(ast::Symbol { name, ns: Some(ns) })));
-    } else {
-        unreachable!()
-    }
+    map(symbol, |symbol_str| {
+        let splited = symbol_str.split('/').collect::<Vec<_>>();
+        if splited.len() == 1 {
+            let name = splited[0];
+            return AST::Symbol(ast::Symbol { ns: None, name });
+        } else if splited.len() == 2 {
+            let ns = splited[0];
+            let name = splited[1];
+            return AST::Symbol(ast::Symbol { name, ns: Some(ns) });
+        } else {
+            unreachable!()
+        }
+    })(tokens)
 }
 
 fn parse_keyword(tokens: Tokens) -> ParseResult {
-    let (rest, name) = keyword(tokens)?;
-    let splited = name.split('/').collect::<Vec<_>>();
-    if splited.len() == 1 {
-        let name = if splited[0].starts_with("::") {
-            &name[2..]
+    map(keyword, |keyword_str| {
+        let name = if keyword_str.starts_with("::") {
+            &keyword_str[2..]
         } else {
-            &name[1..]
+            &keyword_str[1..]
         };
-        return Ok((rest, AST::Symbol(ast::Symbol { ns: None, name })));
-    } else if splited.len() == 2 {
-        let ns = if splited[0].starts_with("::") {
-            &name[2..]
+        let splited = name.split('/').collect::<Vec<_>>();
+        if splited.len() == 1 {
+            let name = splited[0];
+            return AST::Keyword(ast::Keyword { ns: None, name });
+        } else if splited.len() == 2 {
+            let ns = splited[0];
+            let name = splited[1];
+            return AST::Keyword(ast::Keyword { name, ns: Some(ns) });
         } else {
-            &name[1..]
-        };
-        let name = splited[1];
-        return Ok((rest, AST::Symbol(ast::Symbol { name, ns: Some(ns) })));
-    } else {
-        unreachable!()
-    }
+            unreachable!()
+        }
+    })(tokens)
 }
 
-fn apply_parser<'a, T, O, W, P>(tokens: &'a [W], mut parser: P) -> TokenParseResult<'a, T, O, W>
-where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
-    P: TokenParser<'a, T, O, W>,
-{
-    parser.parse(tokens)
+fn parse_string_literal(tokens: Tokens) -> ParseResult {
+    map(string_literal, |str| AST::StringLiteral(&str))(tokens)
 }
 
-fn pair<'a, T, O1, O2, W, P1, P2>(
-    tokens: &'a [W],
-    mut first: P1,
-    mut second: P2,
-) -> TokenParseResult<'a, T, (O1, O2), W>
-where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
-    P1: TokenParser<'a, T, O1, W>,
-    P2: TokenParser<'a, T, O2, W>,
-{
-    let (tokens, first_result) = first.parse(tokens)?;
-    let (tokens, second_result) = second.parse(tokens)?;
-    Ok((tokens, (first_result, second_result)))
+fn parse_integer_literal(tokens: Tokens) -> ParseResult {
+    map(integer_literal, |i| AST::IntegerLiteral(i))(tokens)
 }
 
-#[test]
-fn test() {
-    let tokens = vec![
-        Located {
-            span: Span::new("hogehoge"),
-            value: Token::LParen,
-        },
-        Located {
-            span: Span::new("hogehoge"),
-            value: Token::RParen,
-        },
-    ];
-    let (tokens, _) = pair(&tokens, l_paren, r_paren).unwrap();
-    dbg!(tokens);
+fn parse_float_literal(tokens: Tokens) -> ParseResult {
+    map(float_literal, |f| AST::FloatLiteral(f))(tokens)
+}
+
+fn parse_list(tokens: Tokens) -> ParseResult {
+    map(delimited(l_paren, many0(parse_form), r_paren), |exprs| {
+        AST::List(exprs)
+    })(tokens)
+}
+
+fn parse_vector(tokens: Tokens) -> ParseResult {
+    map(
+        delimited(l_bracket, many0(parse_form), r_bracket),
+        |exprs| AST::Vector(exprs),
+    )(tokens)
+}
+
+fn parse_map(tokens: Tokens) -> ParseResult {
+    map(
+        delimited(l_brace, many0(tuple((parse_form, parse_form))), r_brace),
+        |kvs| AST::Map(kvs),
+    )(tokens)
+}
+
+fn parse_set(tokens: Tokens) -> ParseResult {
+    map(
+        tuple((sharp, delimited(l_brace, many0(parse_form), r_brace))),
+        |(_, forms)| AST::Set(forms),
+    )(tokens)
+}
+
+fn parse_regex_literal(tokens: Tokens) -> ParseResult {
+    map(preceded(sharp, string_literal), |str| {
+        AST::RegexLiteral(&str)
+    })(tokens)
+}
+
+fn parse_quoted_form(tokens: Tokens) -> ParseResult {
+    map(preceded(quote, parse_form), |form| {
+        AST::Quoted(Box::new(form))
+    })(tokens)
+}
+
+fn parse_syntax_quoted_form(tokens: Tokens) -> ParseResult {
+    map(preceded(syntax_quote, parse_form), |form| {
+        AST::SyntaxQuoted(Box::new(form))
+    })(tokens)
+}
+
+fn parse_metadata(tokens: Tokens) -> ParseResult {
+    map(
+        many1(preceded(
+            hat,
+            parse_form
+        )),
+        |meta_forms| AST::Metadata(meta_forms),
+    )(tokens)
+}
+
+pub fn parse_form(tokens: Tokens) -> ParseResult {
+    alt((
+        parse_symbol,
+        parse_keyword,
+        parse_string_literal,
+        parse_integer_literal,
+        parse_float_literal,
+        parse_list,
+        parse_vector,
+        parse_map,
+        parse_set,
+        parse_regex_literal,
+        parse_quoted_form,
+        parse_syntax_quoted_form,
+        parse_metadata
+    ))(tokens)
+}
+
+pub fn parse_root(tokens: Tokens) -> ParseResult {
+    map(many1(parse_form), |top_forms| {
+        AST::Root(top_forms)
+    })(tokens)
 }

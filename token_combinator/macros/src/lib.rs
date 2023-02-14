@@ -6,7 +6,7 @@ use proc_macro2::{TokenTree, Punct, Spacing};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident};
 
-#[proc_macro_derive(ParseToken)]
+#[proc_macro_derive(TokenParser)]
 pub fn derive_parse_token(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as DeriveInput);
     let enum_name = item.ident;

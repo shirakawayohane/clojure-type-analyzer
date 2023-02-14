@@ -13,8 +13,9 @@ pub struct Keyword<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AST<'a> {
     IntegerLiteral(i64),
-    NumberLiteral(f64),
+    FloatLiteral(f64),
     StringLiteral(&'a str),
+    RegexLiteral(&'a str),
     List(Vec<AST<'a>>),
     Vector(Vec<AST<'a>>),
     Set(Vec<AST<'a>>),
@@ -22,4 +23,7 @@ pub enum AST<'a> {
     Symbol(Symbol<'a>),
     Keyword(Keyword<'a>),
     Quoted(Box<AST<'a>>),
+    SyntaxQuoted(Box<AST<'a>>),
+    Metadata(Vec<AST<'a>>),
+    Root(Vec<AST<'a>>)
 }
