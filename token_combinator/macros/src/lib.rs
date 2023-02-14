@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use convert_case::Casing;
-use proc_macro::{TokenStream};
-use proc_macro2::{TokenTree, Punct, Spacing};
+use proc_macro::TokenStream;
+use proc_macro2::{Punct, Spacing, TokenTree};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident};
 
@@ -14,29 +14,34 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
     let prev_quote = Rc::new(RefCell::new(false));
     let token_lifetime_parameter = Rc::new(RefCell::new(Option::<proc_macro2::TokenStream>::None));
     let parser_functions = enum_variants.iter().map(|(variant_name, fields)| {
-        let parser_name =
-            format_ident!("{}", variant_name.to_string().to_case(convert_case::Case::Snake));
+        let parser_name = format_ident!(
+            "{}",
+            variant_name.to_string().to_case(convert_case::Case::Snake)
+        );
         let return_type_stream = match fields {
             Fields::Named(_) => panic!("named enum variant is not supported."),
             Fields::Unnamed(fields) => {
                 if fields.unnamed.len() == 1 {
                     let field = fields.unnamed.first().unwrap();
                     let ty = &field.ty;
-                    quote! { #ty }
+                    quote! { &#ty }
                 } else {
+                    // when tuple
                     let type_tokens_stream = fields.unnamed.iter().map(|field| {
                         let ty = &field.ty;
                         quote! { #ty }
                     });
-                    quote! { 
-                        (#(#type_tokens_stream),*)
+                    quote! {
+                        &(#(#type_tokens_stream),*)
                     }
                 }
             }
             Fields::Unit => {
                 quote! { () }
             }
-        }.into_iter().map(|tok| {
+        }
+        .into_iter()
+        .map(|tok| {
             let is_prev_quote = *prev_quote.borrow();
             if is_prev_quote {
                 *prev_quote.borrow_mut() = false;
@@ -55,7 +60,8 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                 }
             }
             tok
-        }).collect::<proc_macro2::TokenStream>();
+        })
+        .collect::<proc_macro2::TokenStream>();
 
         let token_life_parameter = if let Some(l) = token_lifetime_parameter.borrow().clone() {
             l
@@ -66,18 +72,13 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                 quote! {}
             }
         };
-        let token_life_parameter_with_plus = if token_life_parameter.is_empty() {
-            quote!{}
-        } else {
-            quote! { #token_life_parameter + }
-        };
         let token_life_parameter_with_comma = if token_life_parameter.is_empty() {
-            quote!{}
+            quote! {}
         } else {
             quote! { #token_life_parameter , }
         };
         let token_life_parameter_with_angles = if token_life_parameter.is_empty() {
-            quote!{}
+            quote! {}
         } else {
             quote! { < #token_life_parameter > }
         };
@@ -93,7 +94,7 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                     (#(#names),*)
                 }
             }
-            Fields::Unit => quote! {}
+            Fields::Unit => quote! {},
         };
         let tuple_value_stream = match fields {
             Fields::Named(_) => panic!("named enum variant is not supported."),
@@ -105,31 +106,36 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                 quote! {
                     (#(#names),*)
                 }
-            } 
-            Fields::Unit => quote! { () }
+            }
+            Fields::Unit => quote! { () },
         };
 
-        let lower_variant_name = variant_name.to_string().to_case(convert_case::Case::Snake).replace("_", " ");
+        let lower_variant_name = variant_name
+            .to_string()
+            .to_case(convert_case::Case::Snake)
+            .replace("_", " ");
         let ret = quote! {
-            pub fn #parser_name<#token_life_parameter_with_comma W>(tokens: & #token_life_parameter [W]) -> token_combinator::TokenParseResult<#token_life_parameter_with_comma #enum_name, #return_type_stream , W>
+            pub fn #parser_name<#token_life_parameter_with_comma W>(
+                tokens: & #token_life_parameter [W],
+            ) -> token_combinator::TokenParseResult<#token_life_parameter , #enum_name , #return_type_stream , W>
             where
-                W: #token_life_parameter_with_plus Copy + Into<#enum_name #token_life_parameter_with_angles >, 
+                W: token_combinator::UnwrapToken<#enum_name #token_life_parameter_with_angles>
             {
                 let wrapped_token = &tokens[0];
-                let token = <W as std::convert::Into<#enum_name>>::into(*wrapped_token);
+                let token = wrapped_token.unwrap_token();
                 if let #enum_name::#variant_name #pattern_match_stream = token {
                     Ok((&tokens[1..], #tuple_value_stream))
                 } else {
-                    Err(token_combinator::TokenParseError{
+                    Err(token_combinator::TokenParseError {
                         errors: vec![token_combinator::TokenParseErrorKind::Expects {
                             expects: #lower_variant_name,
-                            found: token
+                            found: token.clone()
                         }],
-                        tokens_consumed: 0
+                        tokens_consumed: 0,
                     })
                 }
             }
-        };
+            };
         ret
     });
 

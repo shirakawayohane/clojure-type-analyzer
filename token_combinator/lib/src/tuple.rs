@@ -1,12 +1,12 @@
 use seq_macro::seq;
-use crate::{TokenParseResult, TokenParser};
+use crate::*;
 
 pub trait Tuple<'a, T, O, W> {
     /// Tries to apply all parsers in the tuple in various orders until all of them succeed
     fn tuple(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, O, W>;
 }
 
-pub fn tuple<'a, T: Clone, O, W: Into<T>, List: Tuple<'a, T, O, W>>(
+pub fn tuple<'a, T: Clone, O, W: UnwrapToken<T>, List: Tuple<'a, T, O, W>>(
     mut l: List,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
     move |tokens: &'a [W]| l.tuple(tokens)
@@ -17,8 +17,7 @@ macro_rules! alt_trait_impl {
       seq!(N in 0..$n {
         impl<'a, T, #(O~N,)* #(P~N,)* W> Tuple<'a, T, (#(O~N,)*), W> for (#(P~N,)*)
           where
-          T: Copy,
-          W: 'a + Copy + Into<T>,
+          W: 'a + UnwrapToken<T>,
           #(
             P~N: TokenParser<'a, T, O~N, W>,
           )*

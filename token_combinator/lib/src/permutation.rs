@@ -1,5 +1,5 @@
 use seq_macro::seq;
-use crate::{TokenParseResult, TokenParser, TokenParseError};
+use crate::*;
 
 pub trait Permutation<'a, T, O, W> {
     /// Tries to apply all parsers in the permutation in various orders until all of them succeed
@@ -17,8 +17,7 @@ macro_rules! alt_trait_impl {
       seq!(N in 0..$n {
         impl<'a, T, #(O~N,)* #(P~N,)* W> Permutation<'a, T, (#(O~N,)*), W> for (#(P~N,)*)
           where
-          T: Copy,
-          W: 'a + Copy + Into<T>,
+          W: 'a + UnwrapToken<T>,
           #(
             P~N: TokenParser<'a, T, O~N, W>,
           )*

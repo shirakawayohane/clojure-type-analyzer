@@ -1,4 +1,6 @@
-use location::{Located, Span};
+use std::vec;
+
+use location::{Span};
 use token_combinator::TokenParser;
 
 #[derive(Debug, PartialEq, Clone, Copy, TokenParser)]
@@ -18,10 +20,4 @@ pub enum Token<'a> {
     FloatLiteral(f64), // 3.14...
     Keyword(Span<'a>), // :keyword, ::keyword, ::ns/keyword :key.word ...
     Symbol(Span<'a>),  // symbol, ns/symbol ...
-}
-
-impl<'a> From<Located<'a, Token<'a>>> for Token<'a> {
-    fn from(value: Located<'a, Token<'a>>) -> Token<'a> {
-        value.value
-    }
 }

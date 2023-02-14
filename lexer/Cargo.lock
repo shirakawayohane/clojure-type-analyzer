@@ -32,6 +32,7 @@ name = "location"
 version = "0.1.0"
 dependencies = [
  "nom_locate",
+ "token_combinator",
 ]
 
 [[package]]

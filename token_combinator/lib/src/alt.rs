@@ -1,12 +1,12 @@
 use seq_macro::seq;
 
-use crate::{TokenParseError, TokenParseResult, TokenParser};
+use crate::*;
 
 pub trait Alt<'a, T, O, W> {
     fn alt(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, O, W>;
 }
 
-pub fn alt<'a, T: Clone, O, W: Into<T>, List: Alt<'a, T, O, W>>(
+pub fn alt<'a, T: Clone, O, W: UnwrapToken<T>, List: Alt<'a, T, O, W>>(
     mut l: List,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
     move |tokens: &'a [W]| l.alt(tokens)
@@ -17,8 +17,7 @@ macro_rules! alt_trait_impl {
       seq!(N in 0..$n {
         impl<'a, T, O, #(P~N,)* W> Alt<'a, T, O, W> for (#(P~N,)*)
           where
-          T: Copy,
-          W: 'a + Copy + Into<T>,
+          W: UnwrapToken<T>,
           #(
             P~N: TokenParser<'a, T, O, W>,
           )*

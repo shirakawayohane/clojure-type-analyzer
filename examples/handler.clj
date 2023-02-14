@@ -4,6 +4,7 @@
    [test.name.space.util :as u]
    [test.name.space.entity.sample :as e.sample]
    [test.name.space.core.sample :as core]
+   [schema.core :as s]
    [struct.core :as v]))
 
 (def SampleSchema
@@ -24,3 +25,8 @@
         (if-let [result (core/add-sample req values)]
           (res/ok result)
           (res/internal-server-error))))))
+
+(defn add :- s/Int
+  [a :- s/Int
+   b :- s/Int]
+  (+ a b))

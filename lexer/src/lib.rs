@@ -2,7 +2,7 @@ pub mod token;
 
 pub use token::Token;
 
-use location::{Located, Span};
+use location::{Located, Location, Span};
 use nom::{
     branch::{alt, permutation},
     bytes::complete::tag,
@@ -18,7 +18,7 @@ use nom::{
 
 use nom_locate::position;
 
-type TokenizeResult<'a> = IResult<Span<'a>, Located<'a, Token<'a>>>;
+type TokenizeResult<'a> = IResult<Span<'a>, Located<Token<'a>>>;
 
 fn comment(input: Span) -> IResult<Span, ()> {
     map(
@@ -42,16 +42,21 @@ fn located<'a, O>(
         let (s, from) = position(input)?;
         let (s, output) = parser.parse(s)?;
         let (s, to) = position(s)?;
-        let span = unsafe {
-            let from_offset = from.location_offset();
-            let to_offset = to.location_offset();
-            let fragment = &input[0..(to_offset - from_offset)];
-            Span::new_from_raw_offset(from.location_offset(), from.location_line(), fragment, ())
-        };
         Ok((
             s,
             Located {
-                span,
+                range: (
+                    Location {
+                        col: from.get_column() as u32,
+                        line: from.location_line() as u32,
+                        offset: from.location_offset() as u32,
+                    },
+                    Location {
+                        col: (to.get_column() + to.len()) as u32,
+                        line: to.location_line() as u32,
+                        offset: to.location_offset() as u32,
+                    },
+                ),
                 value: output,
             },
         ))
@@ -180,7 +185,7 @@ fn symbol(input: Span) -> TokenizeResult {
     ))(input)
 }
 
-pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<'a, Token<'a>>>> {
+pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
     let mut tokens = Vec::new();
     let mut rest = input;
     while rest.len() > 0 {

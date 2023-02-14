@@ -1,11 +1,11 @@
 mod alt;
-mod tuple;
 mod permutation;
+mod tuple;
 
-pub use tuple::tuple;
 pub use alt::alt;
 pub use permutation::permutation;
 pub use token_combinator_macros::TokenParser;
+pub use tuple::tuple;
 
 // T stands for Token
 // K stands for Kind
@@ -29,21 +29,20 @@ impl<T> TokenParseError<T> {
     pub fn with_tokens_consumed(self, tokens_consumed: usize) -> Self {
         TokenParseError {
             errors: self.errors,
-            tokens_consumed
+            tokens_consumed,
         }
     }
 }
 
 pub type TokenParseResult<'a, T, O, W = T> = Result<(&'a [W], O), TokenParseError<T>>;
 
-pub trait TokenParser<'a, T: Copy, O, W: Into<T>> {
+pub trait TokenParser<'a, T, O, W: UnwrapToken<T>> {
     fn parse(&mut self, tokens: &'a [W]) -> Result<(&'a [W], O), TokenParseError<T>>;
 }
 
 impl<'a, T, O, W, F> TokenParser<'a, T, O, W> for F
 where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
+    W: 'a + UnwrapToken<T>,
     F: FnMut(&'a [W]) -> Result<(&'a [W], O), TokenParseError<T>>,
 {
     fn parse(&mut self, tokens: &'a [W]) -> Result<(&'a [W], O), TokenParseError<T>> {
@@ -51,12 +50,21 @@ where
     }
 }
 
+pub trait UnwrapToken<T> {
+    fn unwrap_token(&self) -> &T;
+}
+
+impl<T> UnwrapToken<T> for T {
+    fn unwrap_token(&self) -> &T {
+        self
+    }
+}
+
 pub fn many1<'a, T, O, W>(
     mut parser: impl TokenParser<'a, T, O, W>,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, Vec<O>, W>
 where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
+    W: 'a + UnwrapToken<T>,
 {
     move |tokens: &'a [W]| {
         let mut vec = Vec::new();
@@ -87,8 +95,7 @@ pub fn many0<'a, T, O, W>(
     mut parser: impl TokenParser<'a, T, O, W>,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, Vec<O>, W>
 where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
+    W: 'a + UnwrapToken<T>,
 {
     move |tokens: &'a [W]| {
         let mut vec = Vec::new();
@@ -111,14 +118,11 @@ pub fn opt<'a, T, O, W>(
     mut parser: impl TokenParser<'a, T, O, W>,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, Option<O>, W>
 where
-    T: Copy,
-    W: 'a + Copy + Into<T>,
+    W: UnwrapToken<T>,
 {
-    move |tokens: &'a [W]| {
-        match parser.parse(tokens) {
-            Ok((rest, output)) => Ok((rest, Some(output))),
-            Err(_) => Ok((tokens, None))
-        }
+    move |tokens: &'a [W]| match parser.parse(tokens) {
+        Ok((rest, output)) => Ok((rest, Some(output))),
+        Err(_) => Ok((tokens, None)),
     }
 }
 
@@ -148,7 +152,6 @@ pub fn preceded<'a, T, O1, O2, W: 'a>(
     }
 }
 
-
 pub fn terminated<'a, T, O1, O2, W: 'a>(
     mut first: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O1, W>,
     mut second: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O2, W>,
@@ -174,16 +177,16 @@ pub fn separated_list0<'a, T, O, OSep, W: 'a>(
                     rest = rest_tokens;
                     items.push(item);
                 }
-                Err(_) => return Ok((rest, items))
+                Err(_) => return Ok((rest, items)),
             }
             if rest.is_empty() {
-                return Ok((rest, items))
+                return Ok((rest, items));
             }
             match separator_parser(rest) {
                 Ok((rest_tokens, _)) => {
                     rest = rest_tokens;
                 }
-                Err(_) => return Ok((rest, items))
+                Err(_) => return Ok((rest, items)),
             }
         }
         Ok((&[], Vec::new()))
@@ -206,32 +209,35 @@ pub fn separated_list1<'a, T, O, OSep, W: 'a>(
                 }
                 Err(err) => {
                     if items.len() > 0 {
-                        return Ok((rest, items))
+                        return Ok((rest, items));
                     } else {
                         return Err(err.with_tokens_consumed(num_tokens - rest.len()));
                     }
                 }
             }
             if rest.is_empty() {
-                return Ok((rest, items))
+                return Ok((rest, items));
             }
             match separator_parser(rest) {
                 Ok((rest_tokens, _)) => {
                     rest = rest_tokens;
                 }
-                Err(_) => return Ok((rest, items))
+                Err(_) => return Ok((rest, items)),
             }
         }
         // If tokens is empty, returns error.
-        return Err(TokenParseError { errors: vec![TokenParseErrorKind::NotEnoughToken], tokens_consumed: 0 });
+        return Err(TokenParseError {
+            errors: vec![TokenParseErrorKind::NotEnoughToken],
+            tokens_consumed: 0,
+        });
     }
 }
 
 pub fn map<'a, T, OParser, O, W: 'a>(
     mut parser: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, OParser, W>,
-    mut mapper: impl FnMut(OParser) -> O
+    mut mapper: impl FnMut(OParser) -> O,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
-    move| tokens: &'a [W]| {
+    move |tokens: &'a [W]| {
         let (rest, result) = parser(tokens)?;
         Ok((rest, mapper(result)))
     }

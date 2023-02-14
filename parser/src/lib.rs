@@ -2,38 +2,31 @@ pub mod ast;
 
 pub use ast::AST;
 use lexer::Token;
-use location::{Located, Span};
+use location::{Located};
 use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser};
 
-type Tokens<'a> = &'a [Located<'a, Token<'a>>];
+type Tokens<'a> = &'a [Located<Token<'a>>];
 
-type ParseResult<'a> = TokenParseResult<'a, Token<'a>, Located<'a, AST<'a>>, Located<'a, Token<'a>>>;
+type ParseResult<'a> = TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>>;
 
 use lexer::token::parser::*;
 
 fn located<'a>(
-    mut parser: impl TokenParser<'a, Token<'a>, AST<'a>, Located<'a, Token<'a>>>,
-) -> impl FnMut(&'a [Located<'a, Token<'a>>]) -> TokenParseResult<'a, Token<'a>, Located<'a, AST<'a>>, Located<'a, Token<'a>>> {
-    move |tokens: &'a [Located<'a, Token<'a>>]| {
-        let from = tokens[0].span;
+    mut parser: impl TokenParser<'a, Token<'a>, AST<'a>, Located<Token<'a>>>,
+) -> impl FnMut(&'a [Located<Token<'a>>]) -> TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>> {
+    move |tokens: &'a [Located<Token<'a>>]| {
+        let from = tokens[0].range;
         let (rest, output) = parser.parse(tokens)?;
-        let to = rest[0].span;
-        let span = unsafe {
-            let from_offset = from.location_offset();
-            let to_offset = to.location_offset();
-            let fragment = &from.fragment()[0..(to_offset - from_offset)];
-            Span::new_from_raw_offset(from.location_offset(), from.location_line(), fragment, ())
-        };
+        let to = rest.get(0).unwrap_or(tokens.last().unwrap()).range;
         Ok((
             rest,
             Located {
-                span,
+                range: (from.0, to.1),
                 value: output,
             },
         ))
     }
 }
-
 
 fn parse_symbol(tokens: Tokens) -> ParseResult {
     located(map(symbol, |symbol_str| {
@@ -77,11 +70,11 @@ fn parse_string_literal(tokens: Tokens) -> ParseResult {
 }
 
 fn parse_integer_literal(tokens: Tokens) -> ParseResult {
-    located(map(integer_literal, |i| AST::IntegerLiteral(i)))(tokens)
+    located(map(integer_literal, |i| AST::IntegerLiteral(*i)))(tokens)
 }
 
 fn parse_float_literal(tokens: Tokens) -> ParseResult {
-    located(map(float_literal, |f| AST::FloatLiteral(f)))(tokens)
+    located(map(float_literal, |f| AST::FloatLiteral(*f)))(tokens)
 }
 
 fn parse_list(tokens: Tokens) -> ParseResult {
