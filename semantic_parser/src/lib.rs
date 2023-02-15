@@ -1,5 +1,4 @@
-mod semantic_ast;
-
+pub mod semantic_ast;
 use std::vec;
 
 use anyhow::Result;

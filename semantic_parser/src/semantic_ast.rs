@@ -72,7 +72,7 @@ pub enum Expression<'a> {
     Unknown,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Type {
     Scalar(String),
     Array(Box<Type>),
