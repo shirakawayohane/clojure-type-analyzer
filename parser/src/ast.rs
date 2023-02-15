@@ -23,7 +23,7 @@ pub enum AST<'a> {
     List(Vec<Located<AST<'a>>>),
     Vector(Vec<Located<AST<'a>>>),
     Set(Vec<Located<AST<'a>>>),
-    Map(Vec<(Located<AST<'a>>, Located<AST<'a>>)>),
+    Map(Vec<Located<AST<'a>>>),
     Symbol(Symbol<'a>),
     Keyword(Keyword<'a>),
     Quoted(Box<Located<AST<'a>>>),

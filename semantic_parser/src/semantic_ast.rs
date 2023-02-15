@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use location::Located;
 use parser::{
     ast::{Keyword, Symbol},
-    AST,
 };
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
@@ -39,14 +39,20 @@ pub struct CondExpression<'a>(Vec<PredicateValueSet<'a>>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallExpression<'a> {
-    pub func_expr: Box<Expression<'a>>,
-    pub args: Vec<Expression<'a>>,
+    pub func_expr: Box<Located<Expression<'a>>>,
+    pub args: Vec<Located<Expression<'a>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaseExpression<'a> {
     pub cases: Vec<PredicateValueSet<'a>>,
     pub default: Option<Box<Expression<'a>>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LetExpression<'a> {
+    pub binding: Vec<(Located<Binding>, Option<Located<Type>>)>,
+    pub body: Vec<Located<Expression<'a>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,6 +68,7 @@ pub enum Expression<'a> {
     When(WhenExpression<'a>),
     If(IfExpression<'a>),
     Cond(CondExpression<'a>),
+    Let(LetExpression<'a>),
     Unknown,
 }
 
@@ -83,8 +90,8 @@ pub struct FunctionDecl {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Define<'a> {
     pub name: &'a str,
-    pub ty: Type,
-    pub value: Expression<'a>,
+    pub ty: Option<Located<Type>>,
+    pub value: Located<Expression<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -93,27 +100,60 @@ pub struct Function<'a> {
     pub exprs: Vec<Expression<'a>>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Method {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Alias {
+    pub ns: String,
+    pub alias: String,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct NamespaceOnly {
+    pub ns: String
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct Refers {
+    pub ns: String,
+    pub refers: Vec<String>
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReferAll {
+    pub ns: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RequireDef {
-    pub aliases: HashMap<String, String>,
-    // TODO: impl refer all
+    pub aliases: Vec<Located<Alias>>,
+    pub namespace_onlys: Vec<Located<NamespaceOnly>>,
+    pub refers: Vec<Located<Refers>>,
+    pub refer_alls: Vec<Located<ReferAll>>
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportDef {
+    // TODO: impl later
+}
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceDef {
     pub namespace: String,
-    pub require: RequireDef,
+    pub require: Option<Located<RequireDef>>,
+    pub import: Option<Located<ImportDef>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TopLevel<'a> {
     NamespaceDef(NamespaceDef),
-    Function(FunctionDecl),
+    Function(Function<'a>),
+    Method(Method),
     Def(Define<'a>),
     Unknown,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Root<'a> {
-    pub toplevels: Vec<TopLevel<'a>>,
+pub struct Source<'a> {
+    pub ns_def: Located<NamespaceDef>,
+    pub toplevels: Vec<Located<TopLevel<'a>>>,
 }

@@ -7,6 +7,11 @@
    [schema.core :as s]
    [struct.core :as v]))
 
+(defn add :- s/Int
+  [a :- s/Int
+   b :- s/Int]
+  (+ a b))
+
 (def SampleSchema
   {:id [v/required v/uuid]
    :name [v/required v/uuid]
@@ -25,8 +30,3 @@
         (if-let [result (core/add-sample req values)]
           (res/ok result)
           (res/internal-server-error))))))
-
-(defn add :- s/Int
-  [a :- s/Int
-   b :- s/Int]
-  (+ a b))

@@ -3,7 +3,7 @@ pub mod ast;
 pub use ast::AST;
 use lexer::Token;
 use location::{Located};
-use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser, opt};
+use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser, opt, map_res, TokenParseError, TokenParseErrorKind};
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
@@ -96,9 +96,20 @@ fn parse_vector(tokens: Tokens) -> ParseResult {
 }
 
 fn parse_map(tokens: Tokens) -> ParseResult {
-    located(map(
-        delimited(l_brace, many0(tuple((parse_form, parse_form))), r_brace),
-        |kvs| AST::Map(kvs),
+    located(map_res(
+        delimited(l_brace, many0(parse_form), r_brace),
+        |res| match res {
+            Ok((rest, kvs)) => {
+                if kvs.len() % 2 != 0 {
+                    return Err(TokenParseError {
+                        errors: vec![TokenParseErrorKind::Other("map must have even number of forms")],
+                        tokens_consumed: kvs.len()
+                    })
+                }
+                Ok((rest, AST::Map(kvs)))
+            },
+            Err(err) => Err(err)
+        },
     ))(tokens)
 }
 
