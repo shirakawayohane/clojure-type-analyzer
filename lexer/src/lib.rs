@@ -188,6 +188,7 @@ fn symbol(input: Span) -> TokenizeResult {
 pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
     let mut tokens = Vec::new();
     let mut rest = input;
+    (rest, _) = skip0(rest)?;
     while rest.len() > 0 {
         let token: Located<Token>;
         (rest, token) = alt((
