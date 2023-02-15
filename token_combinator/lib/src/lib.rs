@@ -34,17 +34,11 @@ impl<T> TokenParseError<T> {
             tokens_consumed,
         }
     }
-    pub fn with_more_specific_expectation(mut self, new_expect: &'static str) -> Self {
-        let error = self.errors.pop().unwrap();
-        let new_error = match error {
-            TokenParseErrorKind::Expects { expects: _, found } => TokenParseErrorKind::Expects {
-                expects: new_expect,
-                found,
-            },
-            _ => panic!(),
-        };
+    pub fn with_error_appended(self, kind: TokenParseErrorKind<T>) -> Self {
+        let mut errors = self.errors;
+        errors.push(kind);
         TokenParseError {
-            errors: vec![new_error],
+            errors,
             tokens_consumed: self.tokens_consumed,
         }
     }
@@ -73,6 +67,18 @@ pub trait UnwrapToken<T> {
 impl<T> UnwrapToken<T> for T {
     fn unwrap_token(&self) -> &T {
         self
+    }
+}
+
+pub fn context<'a, T, O, W: 'a>(
+    context: &'static str,
+    mut parser: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
+    move |tokens: &'a [W]| {
+        match parser(tokens) {
+            Err(err) => Err(err.with_error_appended(TokenParseErrorKind::Context(context))),
+            ok => ok,
+        }
     }
 }
 
@@ -124,6 +130,34 @@ where
                     continue;
                 }
                 _ => break,
+            }
+        }
+        Ok((rest, vec))
+    }
+}
+
+pub fn many0_until_end<'a, T, O, W>(
+    mut parser: impl TokenParser<'a, T, O, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, Vec<O>, W>
+where
+    W: 'a + UnwrapToken<T> + std::fmt::Debug,
+{
+    move |tokens: &'a [W]| {
+        let mut vec = Vec::new();
+        let mut rest = tokens;
+        while rest.len() > 0 {
+            match parser.parse(rest) {
+                Ok((rest_tokens, item)) => {
+                    rest = rest_tokens;
+                    vec.push(item);
+
+                    if rest_tokens.is_empty() {
+                        return Ok((rest, vec));
+                    }
+                    
+                    continue;
+                }
+                Err(err) => return Err(err),
             }
         }
         Ok((rest, vec))

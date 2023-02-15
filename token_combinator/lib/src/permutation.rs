@@ -6,7 +6,7 @@ pub trait Permutation<'a, T, O, W> {
     fn permutation(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, O, W>;
 }
 
-pub fn permutation<'a, T: Clone, O, W: Into<T>, List: Permutation<'a, T, O, W>>(
+pub fn permutation<'a, T: Clone, O, W: UnwrapToken<T>, List: Permutation<'a, T, O, W>>(
     mut l: List,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
     move |tokens: &'a [W]| l.permutation(tokens)
@@ -28,8 +28,7 @@ macro_rules! alt_trait_impl {
             #(let mut _succeeded_~N = false;)*
             #(let mut _error_of_parser~N: Option<TokenParseError<T>> = None;)*
             #(let mut _result_of_parser~N: Option<O~N> = None;)*
-            for i in 0..$n {
-                dbg!(i);
+            for _ in 0..$n {
                 #(
                     if !_succeeded_~N {
                         match self.N.parse(_rest) {

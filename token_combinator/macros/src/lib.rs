@@ -121,6 +121,14 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
             where
                 W: token_combinator::UnwrapToken<#enum_name #token_life_parameter_with_angles>
             {
+                if tokens.is_empty() {
+                    return Err(token_combinator::TokenParseError {
+                        errors: vec![
+                            token_combinator::TokenParseErrorKind::NotEnoughToken
+                        ],
+                        tokens_consumed: 0
+                    })
+                }
                 let wrapped_token = &tokens[0];
                 let token = wrapped_token.unwrap_token();
                 if let #enum_name::#variant_name #pattern_match_stream = token {
