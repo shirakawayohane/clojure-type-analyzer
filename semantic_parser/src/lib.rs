@@ -83,6 +83,7 @@ macro_rules! specific_keyword {
 }
 
 specific_keyword!(as, "as", ":as");
+specific_keyword!(keys, "keys", ":keys");
 specific_keyword!(refer, "refer", ":refer");
 specific_keyword!(all, "all", ":all");
 specific_keyword!(import, "impot", ":import");
@@ -257,7 +258,15 @@ fn parse_annotation<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Typ
 fn parse_binding<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Binding> {
     context(
         "binding",
-        located(map(symbol, |sym| Binding::Simple(sym.name.to_string()))),
+        located(alt((
+            map(symbol, |sym| Binding::Simple(sym.name.to_string())),
+            map(parser::ast::parser::map, |kvs| {
+                permutation((
+                    opt(tuple((as_keyword, symbol))),
+                    opt(tuple((keys_keyword, vec)))
+                ))
+            }),
+        ))),
     )(forms)
 }
 
@@ -475,7 +484,7 @@ fn parse_toplevel<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
             map(parse_function, |func| TopLevel::Function(func.value)),
             map(parse_def, |def| TopLevel::Def(def.value)),
             map(parse_method, |method| TopLevel::Method(method.value)),
-            map(success, |_| TopLevel::Unknown)
+            map(success, |_| TopLevel::Unknown),
         ))),
     )(toplevel_forms)?;
 

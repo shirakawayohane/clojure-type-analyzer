@@ -11,7 +11,8 @@ pub enum Binding {
     Simple(String),
     Complex {
         keys: Option<Vec<String>>,
-        alias: Option<(String, String)>,
+        alias: Option<Vec<(String, String)>>,
+        as_sym: Option<String>
     },
 }
 
