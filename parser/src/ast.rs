@@ -1,10 +1,11 @@
 use location::Located;
 use token_combinator::TokenParser;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,
     pub name: &'a str,
+    pub metadata: Option<Vec<Located<AST<'a>>>>
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -27,7 +28,6 @@ pub enum AST<'a> {
     Keyword(Keyword<'a>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),
-    Metadata(Vec<Located<AST<'a>>>),
     Root(Vec<Located<AST<'a>>>)
 }
 

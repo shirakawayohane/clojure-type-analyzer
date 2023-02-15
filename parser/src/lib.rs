@@ -3,7 +3,7 @@ pub mod ast;
 pub use ast::AST;
 use lexer::Token;
 use location::{Located};
-use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser};
+use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser, opt};
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
@@ -29,15 +29,20 @@ fn located<'a>(
 }
 
 fn parse_symbol(tokens: Tokens) -> ParseResult {
-    located(map(symbol, |symbol_str| {
+    located(map(tuple((opt(
+        many1(preceded(
+            hat,
+            parse_form
+        )),
+    ), symbol)), |(metadata, symbol_str)| {
         let splited = symbol_str.split('/').collect::<Vec<_>>();
         if splited.len() == 1 {
             let name = splited[0];
-            return AST::Symbol(ast::Symbol { ns: None, name });
+            return AST::Symbol(ast::Symbol { ns: None, name, metadata });
         } else if splited.len() == 2 {
             let ns = splited[0];
             let name = splited[1];
-            return AST::Symbol(ast::Symbol { name, ns: Some(ns) });
+            return AST::Symbol(ast::Symbol { name, ns: Some(ns), metadata });
         } else {
             unreachable!()
         }
@@ -122,16 +127,6 @@ fn parse_syntax_quoted_form(tokens: Tokens) -> ParseResult {
     }))(tokens)
 }
 
-fn parse_metadata(tokens: Tokens) -> ParseResult {
-    located(map(
-        many1(preceded(
-            hat,
-            parse_form
-        )),
-        |meta_forms| AST::Metadata(meta_forms),
-    ))(tokens)
-}
-
 pub fn parse_form(tokens: Tokens) -> ParseResult {
     alt((
         parse_symbol,
@@ -146,7 +141,6 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_regex_literal,
         parse_quoted_form,
         parse_syntax_quoted_form,
-        parse_metadata
     ))(tokens)
 }
 

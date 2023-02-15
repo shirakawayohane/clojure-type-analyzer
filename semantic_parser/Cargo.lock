@@ -48,6 +48,7 @@ dependencies = [
  "nom-greedyerror",
  "nom_locate 4.1.0",
  "parser",
+ "paste",
  "thiserror",
  "token_combinator",
 ]

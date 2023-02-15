@@ -28,7 +28,6 @@ fn tuple_test() {
     assert_eq!(*c, "piyo");
 }
 
-
 #[test]
 fn permutation_test() {
     let tokens = &[
@@ -173,7 +172,10 @@ fn separated_list1_test() {
     assert_eq!(
         separated_list1(pipe, ident)(tokens),
         Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::Expects { expects: "ident", found: Token::LParen }],
+            errors: vec![TokenParseErrorKind::Expects {
+                expects: "ident",
+                found: Token::LParen
+            }],
             tokens_consumed: 0
         })
     );
@@ -194,12 +196,44 @@ fn separated_list1_test() {
 fn map_test() {
     #[derive(Debug, PartialEq, Eq)]
     enum AST {
-        Ident(String)
+        Ident(String),
     }
     let tokens = &[Token::Ident("myon")];
     let (_, result) = map(ident, |ident| AST::Ident(ident.to_string()))(tokens).unwrap();
+    assert_eq!(result, AST::Ident("myon".to_string()))
+}
+
+#[test]
+fn map_res_test() {
+    let mut parser = map_res(ident, |res| match res {
+        Ok((rest, ident_str)) => {
+            if *ident_str == "if" {
+                Ok((rest, ident_str))
+            } else {
+                Err(TokenParseError {
+                    errors: vec![TokenParseErrorKind::Expects {
+                        expects: "if",
+                        found: Token::Ident(ident_str),
+                    }],
+                    tokens_consumed: 0,
+                })
+            }
+        }
+        error_res => error_res,
+    });
+
     assert_eq!(
-        result,
-        AST::Ident("myon".to_string())
-    )
+        parser(&[Token::Ident("myon")]),
+        Err(TokenParseError {
+            errors: vec![TokenParseErrorKind::Expects {
+                expects: "if",
+                found: Token::Ident("myon"),
+            }],
+            tokens_consumed: 0
+        })
+    );
+
+    let (rest, ident_str) = parser(&[Token::Ident("if")]).unwrap();
+    assert!(rest.is_empty());
+    assert_eq!(ident_str, &"if");
 }

@@ -12,14 +12,16 @@ pub use tuple::tuple;
 // O stands for Output
 // W stands for Wrapper
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenParseErrorKind<T> {
     Expects { expects: &'static str, found: T },
     NotEnoughToken,
+    Fail,
     Context(&'static str),
+    Other(&'static str),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct TokenParseError<T> {
     pub errors: Vec<TokenParseErrorKind<T>>,
     pub tokens_consumed: usize,
@@ -30,6 +32,20 @@ impl<T> TokenParseError<T> {
         TokenParseError {
             errors: self.errors,
             tokens_consumed,
+        }
+    }
+    pub fn with_more_specific_expectation(mut self, new_expect: &'static str) -> Self {
+        let error = self.errors.pop().unwrap();
+        let new_error = match error {
+            TokenParseErrorKind::Expects { expects: _, found } => TokenParseErrorKind::Expects {
+                expects: new_expect,
+                found,
+            },
+            _ => panic!(),
+        };
+        TokenParseError {
+            errors: vec![new_error],
+            tokens_consumed: self.tokens_consumed,
         }
     }
 }
@@ -241,4 +257,34 @@ pub fn map<'a, T, OParser, O, W: 'a>(
         let (rest, result) = parser(tokens)?;
         Ok((rest, mapper(result)))
     }
+}
+
+pub fn map_res<'a, T, O1, O2, W: 'a>(
+    mut parser: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O1, W>,
+    mut mapper: impl FnMut(TokenParseResult<'a, T, O1, W>) -> TokenParseResult<'a, T, O2, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O2, W> {
+    move |tokens: &'a [W]| mapper(parser(tokens))
+}
+
+pub fn success<'a, T, W: 'a>(tokens: &'a [W]) -> TokenParseResult<'a, T, &W, W> {
+    if tokens.is_empty() {
+        return Err(TokenParseError {
+            errors: vec![TokenParseErrorKind::NotEnoughToken],
+            tokens_consumed: 0,
+        });
+    }
+    Ok((&tokens[1..], &tokens[0]))
+}
+
+pub fn fail<'a, T, W: 'a>(tokens: &'a [W]) -> TokenParseResult<'a, T, &W, W> {
+    if tokens.is_empty() {
+        return Err(TokenParseError {
+            errors: vec![TokenParseErrorKind::NotEnoughToken],
+            tokens_consumed: 0,
+        });
+    }
+    Err(TokenParseError {
+        errors: vec![TokenParseErrorKind::Fail],
+        tokens_consumed: 0,
+    })
 }

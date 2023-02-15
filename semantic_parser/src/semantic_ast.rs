@@ -1,116 +1,119 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Symbol {
-    pub ns: Option<String>,
-    pub name: String,
-}
+use location::Located;
+use parser::{
+    ast::{Keyword, Symbol},
+    AST,
+};
 
-impl<'a> From<&parser::ast::Symbol<'a>> for Symbol {
-    fn from(value: &parser::ast::Symbol<'a>) -> Self {
-        Self {
-            ns: value.ns.map(|x| x.to_string()),
-            name: value.name.to_string()
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum Binding {
+    Simple(String),
+    Complex {
+        keys: Option<Vec<String>>,
+        alias: Option<(String, String)>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Binding {
-    pub simple: Option<String>,
-    pub keys: Option<Vec<String>>,
-    pub alias: Option<Vec<(String, String)>>,
+pub struct IfExpression<'a> {
+    pub cond: Box<Located<Expression<'a>>>,
+    pub when_true: Box<Located<Expression<'a>>>,
+    pub when_false: Option<Box<Located<Expression<'a>>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IfExpression {
-    pub cond: Box<Expression>,
-    pub when_true: Box<Expression>,
-    pub when_false: Box<Expression>,
+pub struct WhenExpression<'a> {
+    pub cond: Box<Located<Expression<'a>>>,
+    pub when_true: Box<Located<Expression<'a>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct WhenExpression {
-    pub cond: Box<Expression>,
-    pub when_true: Box<Expression>,
+pub struct PredicateValueSet<'a> {
+    pub predicate: Box<Expression<'a>>,
+    pub value: Box<Expression<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PredicateValueSet {
-    pub predicate: Box<Expression>,
-    pub value: Box<Expression>,
+pub struct CondExpression<'a>(Vec<PredicateValueSet<'a>>);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallExpression<'a> {
+    pub func_expr: Box<Expression<'a>>,
+    pub args: Vec<Expression<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CondExpression(Vec<PredicateValueSet>);
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CallExpression {
-    pub func_expr: Box<Expression>,
-    pub args: Vec<Expression>
+pub struct CaseExpression<'a> {
+    pub cases: Vec<PredicateValueSet<'a>>,
+    pub default: Option<Box<Expression<'a>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct CaseExpression {
-    pub cases: Vec<PredicateValueSet>,
-    pub default: Option<Box<Expression>>,
+pub enum Expression<'a> {
+    IntLiteral(i64),
+    FloatLiteral(f64),
+    Keyword(&'a Keyword<'a>),
+    SymbolRef(&'a Symbol<'a>),
+    SetLiteral(Vec<Located<Expression<'a>>>),
+    VectorLiteral(Vec<Located<Expression<'a>>>),
+    MapLiteral(Vec<(Located<Expression<'a>>, Located<Expression<'a>>)>),
+    Call(CallExpression<'a>),
+    When(WhenExpression<'a>),
+    If(IfExpression<'a>),
+    Cond(CondExpression<'a>),
+    Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    SymbolRef(Symbol),
-    Call(CallExpression),
-    When(WhenExpression),
-    If(IfExpression),
-    Cond(CondExpression),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
-    Int,
-    Any
+    Scalar(String),
+    Array(Box<Type>),
+    Any,
+    Unknown,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDecl {
     pub name: String,
-    pub arguments: Vec<(Binding, Type)>,
-    pub return_type: Type
+    pub arguments: Vec<(Located<Binding>, Option<Located<Type>>)>,
+    pub return_type: Option<Located<Type>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Define {
-    pub name: String,
+pub struct Define<'a> {
+    pub name: &'a str,
     pub ty: Type,
-    pub value: Expression
+    pub value: Expression<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Function {
+pub struct Function<'a> {
     pub decl: FunctionDecl,
-    pub exprs: Vec<Expression>
+    pub exprs: Vec<Expression<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RequireDef {
-    pub aliases: HashMap<Symbol, Symbol>,
+    pub aliases: HashMap<String, String>,
+    // TODO: impl refer all
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceDef {
     pub namespace: String,
-    pub require: RequireDef
+    pub require: RequireDef,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TopLevel {
+pub enum TopLevel<'a> {
     NamespaceDef(NamespaceDef),
     Function(FunctionDecl),
-    Def(Define),
-    Unknown
+    Def(Define<'a>),
+    Unknown,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Root {
-    pub toplevels: Vec<TopLevel>
+pub struct Root<'a> {
+    pub toplevels: Vec<TopLevel<'a>>,
 }
