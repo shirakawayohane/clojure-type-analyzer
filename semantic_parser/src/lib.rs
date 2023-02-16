@@ -156,7 +156,7 @@ fn parse_require<'a>(forms_in_ns_list: &'a [Located<AST<'a>>]) -> ASTParseResult
         ))(forms_in_vec)
     }
 
-    let (rest, forms_in_require_list) = located(list)(forms_in_ns_list)?;
+    let (rest, forms_in_require_list) = list(forms_in_ns_list)?;
 
     let (_, require_def) = context(
         "require",
@@ -275,7 +275,7 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                     if forms.len() == 0 {
                         return Ok((rest, Expression::Unknown));
                     }
-                    if let Ok((rest, _)) = if_symbol(forms) {
+                    if let Ok((_, _)) = if_symbol(forms) {
                         return map(
                             tuple((parse_expression, parse_expression, opt(parse_expression))),
                             |(cond, if_true, opt_if_false)| {
@@ -285,7 +285,7 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                                     when_false: opt_if_false.map(|x| Box::new(x)),
                                 })
                             },
-                        )(rest);
+                        )(forms);
                     }
                     if let Ok((rest, _)) = when_symbol(forms) {
                         return map(
@@ -296,22 +296,25 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                                     when_true: Box::new(if_true),
                                 })
                             },
-                        )(rest);
+                        )(forms);
                     }
                     if let Ok((rest, _)) = let_symbol(forms) {
-                        return map(
-                            tuple((
-                                many0_until_end(tuple((parse_binding, opt(parse_annotation)))),
-                                many0_until_end(parse_expression),
-                            )),
-                            |(bindings, body)| {
-                                Expression::Let(LetExpression {
-                                    binding: bindings,
-                                    body,
-                                })
-                            },
-                        )(rest);
+                        let (rest, forms_in_vec) = vector(rest)?;
+                        let (_, bindings) = many0_until_end(tuple((
+                            parse_binding,
+                            opt(parse_annotation),
+                            parse_expression_and_box,
+                        )))(&forms_in_vec)?;
+                        let (_, body) = many0_until_end(parse_expression)(rest)?;
+                        return Ok((
+                            rest,
+                            Expression::Let(LetExpression {
+                                bindings: bindings,
+                                body,
+                            }),
+                        ));
                     }
+                    println!("not let");
                     map(
                         tuple((parse_expression, many0_until_end(parse_expression))),
                         |(fn_exp, args)| {
@@ -359,6 +362,12 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
     Ok((&forms[1..], expr))
 }
 
+fn parse_expression_and_box<'a>(
+    forms: &'a [Located<AST<'a>>],
+) -> ASTParseResult<'a, Box<Expression<'a>>> {
+    located(map(parse_expression, |expr| Box::new(expr.value)))(forms)
+}
+
 #[test]
 fn parse_toplevel_test() {
     let source = "(defn a [] 1)";
@@ -366,7 +375,6 @@ fn parse_toplevel_test() {
     let (_, tokens) = lexer::tokenize(Span::from(source)).unwrap();
     let (_, ast) = parser::parse_form(&tokens).unwrap();
     let asts = &[ast];
-    dbg!(parse_toplevel(asts));
 }
 
 pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, FunctionDecl> {
@@ -406,7 +414,7 @@ fn parse_function<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
             tuple((parse_function_decl, many0_until_end(parse_expression))),
             |(decl, exprs)| Function {
                 decl: decl.value,
-                exprs: exprs.into_iter().map(|x| x.value).collect::<Vec<_>>(),
+                exprs,
             },
         )),
     )(forms_in_list)?;
@@ -474,7 +482,7 @@ fn parse_toplevel<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
             map(parse_function, |func| TopLevel::Function(func.value)),
             map(parse_def, |def| TopLevel::Def(def.value)),
             map(parse_method, |method| TopLevel::Method(method.value)),
-            map(success, |_| TopLevel::Unknown)
+            map(success, |_| TopLevel::Unknown),
         ))),
     )(toplevel_forms)?;
 

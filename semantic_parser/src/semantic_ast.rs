@@ -1,10 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use location::Located;
-use parser::{
-    ast::{Keyword, Symbol},
-};
-
+use parser::ast::{Keyword, Symbol};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
@@ -51,7 +48,11 @@ pub struct CaseExpression<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LetExpression<'a> {
-    pub binding: Vec<(Located<Binding>, Option<Located<Type>>)>,
+    pub bindings: Vec<(
+        Located<Binding>,
+        Option<Located<Type>>,
+        Located<Box<Expression<'a>>>,
+    )>,
     pub body: Vec<Located<Expression<'a>>>,
 }
 
@@ -97,7 +98,7 @@ pub struct Define<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Function<'a> {
     pub decl: FunctionDecl,
-    pub exprs: Vec<Expression<'a>>,
+    pub exprs: Vec<Located<Expression<'a>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -110,12 +111,12 @@ pub struct Alias {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceOnly {
-    pub ns: String
+    pub ns: String,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Refers {
     pub ns: String,
-    pub refers: Vec<String>
+    pub refers: Vec<String>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReferAll {
@@ -127,14 +128,13 @@ pub struct RequireDef {
     pub aliases: Vec<Located<Alias>>,
     pub namespace_onlys: Vec<Located<NamespaceOnly>>,
     pub refers: Vec<Located<Refers>>,
-    pub refer_alls: Vec<Located<ReferAll>>
+    pub refer_alls: Vec<Located<ReferAll>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportDef {
     // TODO: impl later
 }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct NamespaceDef {
