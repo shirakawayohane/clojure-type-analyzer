@@ -1,9 +1,12 @@
 pub mod ast;
 
 pub use ast::AST;
-use lexer::Token;
-use location::{Located};
-use token_combinator::{alt, delimited, many0, many1, map, preceded, tuple, TokenParseResult, TokenParser, opt, map_res, TokenParseError, TokenParseErrorKind};
+use lexer::{tokenize, Token};
+use location::{Located, Span};
+use token_combinator::{
+    alt, delimited, many0, many1, map, map_res, opt, preceded, tuple, TokenParseError,
+    TokenParseErrorKind, TokenParseResult, TokenParser,
+};
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
@@ -13,7 +16,9 @@ use lexer::token::parser::*;
 
 fn located<'a>(
     mut parser: impl TokenParser<'a, Token<'a>, AST<'a>, Located<Token<'a>>>,
-) -> impl FnMut(&'a [Located<Token<'a>>]) -> TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>> {
+) -> impl FnMut(
+    &'a [Located<Token<'a>>],
+) -> TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>> {
     move |tokens: &'a [Located<Token<'a>>]| {
         let from = tokens[0].range;
         let (rest, output) = parser.parse(tokens)?;
@@ -29,24 +34,30 @@ fn located<'a>(
 }
 
 fn parse_symbol(tokens: Tokens) -> ParseResult {
-    located(map(tuple((opt(
-        many1(preceded(
-            hat,
-            parse_form
-        )),
-    ), symbol)), |(metadata, symbol_str)| {
-        let splited = symbol_str.split('/').collect::<Vec<_>>();
-        if splited.len() == 1 {
-            let name = splited[0];
-            return AST::Symbol(ast::Symbol { ns: None, name, metadata });
-        } else if splited.len() == 2 {
-            let ns = splited[0];
-            let name = splited[1];
-            return AST::Symbol(ast::Symbol { name, ns: Some(ns), metadata });
-        } else {
-            unreachable!()
-        }
-    }))(tokens)
+    located(map(
+        tuple((opt(many1(preceded(hat, parse_form))), symbol)),
+        |(metadata, symbol_str)| {
+            let splited = symbol_str.split('/').collect::<Vec<_>>();
+            if splited.len() == 1 {
+                let name = splited[0];
+                return AST::Symbol(ast::Symbol {
+                    ns: None,
+                    name,
+                    metadata,
+                });
+            } else if splited.len() == 2 {
+                let ns = splited[0];
+                let name = splited[1];
+                return AST::Symbol(ast::Symbol {
+                    name,
+                    ns: Some(ns),
+                    metadata,
+                });
+            } else {
+                unreachable!()
+            }
+        },
+    ))(tokens)
 }
 
 fn parse_keyword(tokens: Tokens) -> ParseResult {
@@ -83,9 +94,10 @@ fn parse_float_literal(tokens: Tokens) -> ParseResult {
 }
 
 fn parse_list(tokens: Tokens) -> ParseResult {
-    located(map(delimited(l_paren, many0(parse_form), r_paren), |forms| {
-        AST::List(forms)
-    }))(tokens)
+    located(map(
+        delimited(l_paren, many0(parse_form), r_paren),
+        |forms| AST::List(forms),
+    ))(tokens)
 }
 
 fn parse_vector(tokens: Tokens) -> ParseResult {
@@ -102,13 +114,15 @@ fn parse_map(tokens: Tokens) -> ParseResult {
             Ok((rest, kvs)) => {
                 if kvs.len() % 2 != 0 {
                     return Err(TokenParseError {
-                        errors: vec![TokenParseErrorKind::Other("map must have even number of forms")],
-                        tokens_consumed: kvs.len()
-                    })
+                        errors: vec![TokenParseErrorKind::Other(
+                            "map must have even number of forms",
+                        )],
+                        tokens_consumed: kvs.len(),
+                    });
                 }
                 Ok((rest, AST::Map(kvs)))
-            },
-            Err(err) => Err(err)
+            }
+            Err(err) => Err(err),
         },
     ))(tokens)
 }
@@ -156,7 +170,5 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
 }
 
 pub fn parse_root(tokens: Tokens) -> ParseResult {
-    located(map(many1(parse_form), |top_forms| {
-        AST::Root(top_forms)
-    }))(tokens)
+    located(map(many1(parse_form), |top_forms| AST::Root(top_forms)))(tokens)
 }

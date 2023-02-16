@@ -1,26 +1,28 @@
 use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
-    fmt::Display,
+    fmt::{Display, Write},
     rc::Rc,
 };
 
 use derive_is_enum_variant::is_enum_variant;
 use location::Location;
 use semantic_parser::semantic_ast::{
-    Define, Expression, Function, FunctionDecl, Source, TopLevel, Type,
+    DefSchema, Define, Expression, Function, FunctionDecl, MapKey, Source, TopLevel, Type,
 };
 
 mod expression;
 use expression::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, is_enum_variant)]
+#[derive(Debug, Clone, PartialEq, Eq, is_enum_variant)]
 pub enum ResolvedType {
     Nil,
     Int,
     Num,
     Str,
     Keyword,
+    Map(HashMap<MapKey, ResolvedType>),
+    Array(Box<ResolvedType>),
     Fn {
         return_ty: Box<ResolvedType>,
         arg_types: Vec<ResolvedType>,
@@ -41,12 +43,21 @@ impl Display for ResolvedType {
                 return_ty: _,
                 arg_types: _,
             } => write!(f, "Function"),
+            ResolvedType::Array(inner_type) => write!(f, "[{}]", inner_type),
+            ResolvedType::Map(kvp) => {
+                f.write_char('{')?;
+                for (k, v) in kvp.iter() {
+                    write!(f, "{} {}", k, v)?;
+                }
+                f.write_char('}')?;
+                Ok(())
+            }
         }
     }
 }
 
 impl ResolvedType {
-    pub fn is_assinable_to(&self, other: &Self) -> bool {
+    pub fn is_assinable_to(&self, other: &Self, context: Context) -> bool {
         if other.is_unknown() {
             return true;
         }
@@ -56,6 +67,30 @@ impl ResolvedType {
             ResolvedType::Str => other.is_str(),
             ResolvedType::Num => other.is_num(),
             ResolvedType::Keyword => other.is_keyword(),
+            ResolvedType::Array(inner_type) => {
+                if let ResolvedType::Array(other_inner_type) = *inner_type.clone() {
+                    inner_type.is_assinable_to(&other_inner_type, context)
+                } else {
+                    false
+                }
+            }
+            ResolvedType::Map(kvs) => {
+                if let ResolvedType::Map(other_kvs) = other {
+                    if other_kvs.len() == 1 {
+                        if let MapKey::Type(other_key_ty) = other_kvs.keys().next().unwrap() {
+                            let ctx = context.borrow();
+                            let resolved_other_key_ty = ctx.resolve_type(other_key_ty);
+                            let resolved_other_value_ty = other_kvs.values().next().unwrap();
+                            for (k, _v) in kvs.iter() {
+                                let resolved_k_ty = ctx.resolve_type(&Type::from(k));
+                                let resolved_v_ty = ctx.resolve_type(v);
+                            }
+                            return true;
+                        }
+                    }
+                }
+                return true;
+            }
             ResolvedType::Unknown => true,
             ResolvedType::Fn {
                 return_ty: _,
@@ -67,7 +102,7 @@ impl ResolvedType {
 
 pub struct AnalyzeContext {
     pub variable_scopes: Vec<HashMap<String, ResolvedType>>,
-    pub type_scopes: Vec<HashMap<Type, ResolvedType>>,
+    pub type_scopes: Vec<HashMap<String, ResolvedType>>,
     pub aliases: HashMap<String, String>,
 }
 
@@ -83,10 +118,10 @@ impl AnalyzeContext {
         );
 
         let mut global_type_scope = HashMap::new();
-        global_type_scope.insert(Type::Scalar("Int".to_string()), ResolvedType::Int);
-        global_type_scope.insert(Type::Scalar("Num".to_string()), ResolvedType::Num);
-        global_type_scope.insert(Type::Scalar("Str".to_string()), ResolvedType::Str);
-        global_type_scope.insert(Type::Scalar("Keyword".to_string()), ResolvedType::Keyword);
+        global_type_scope.insert("Int".to_string(), ResolvedType::Int);
+        global_type_scope.insert("Num".to_string(), ResolvedType::Num);
+        global_type_scope.insert("Str".to_string(), ResolvedType::Str);
+        global_type_scope.insert("Keyword".to_string(), ResolvedType::Keyword);
 
         AnalyzeContext {
             variable_scopes: vec![global_variable_scope],
@@ -94,13 +129,25 @@ impl AnalyzeContext {
             aliases: HashMap::new(),
         }
     }
-    pub fn resolve_type(&self, ty: &Type) -> Option<&ResolvedType> {
+    pub fn resolve_type(&self, ty: &Type) -> ResolvedType {
         for types_in_scope in self.type_scopes.iter().rev() {
-            if let Some(v) = types_in_scope.get(ty) {
-                return Some(v);
+            match ty {
+                Type::Scalar(name) => {
+                    if let Some(ty) = types_in_scope.get(name) {
+                        return *ty;
+                    } else {
+                        return ResolvedType::Unknown;
+                    }
+                }
+                Type::Array(inner_type) => {
+                    return ResolvedType::Array(Box::new(self.resolve_type(inner_type)))
+                }
+                Type::Map(_) => todo!(),
+                Type::Any => todo!(),
+                Type::Unknown => todo!(),
             }
         }
-        None
+        ResolvedType::Unknown
     }
     pub fn find_variable_type<'a>(&'a self, name: &str) -> Option<&'a ResolvedType> {
         for scope in self.variable_scopes.iter().rev() {
@@ -139,6 +186,8 @@ pub fn infer_expression_type<'a>(
     match expr {
         Expression::IntLiteral(_) => ResolvedType::Int,
         Expression::FloatLiteral(_) => ResolvedType::Num,
+        Expression::StringLiteral(_) => ResolvedType::Str,
+        Expression::RegexLiteral(_) => todo!(),
         Expression::Keyword(_) => ResolvedType::Keyword,
         Expression::SymbolRef(sym) => context
             .borrow()
@@ -176,13 +225,12 @@ pub fn infer_expression_type<'a>(
 pub fn analyze_def(errors: Errors, context: Context, def: &Define) {
     let value_ty = infer_expression_type(errors, context.clone(), &def.value);
     if let Some(ty) = &def.ty {
-        if let Some(resolved) = context.borrow().resolve_type(&ty) {
-            if !value_ty.is_assinable_to(resolved) {
-                errors.push(AnalyzeError {
-                    loc: def.value.range,
-                    message: format!("{} is not assinable to {}", value_ty, resolved),
-                })
-            }
+        let resolved = context.borrow().resolve_type(&ty);
+        if !value_ty.is_assinable_to(&resolved, context.clone()) {
+            errors.push(AnalyzeError {
+                loc: def.value.range,
+                message: format!("{} is not assinable to {}", value_ty, resolved),
+            })
         }
     }
     context
@@ -195,11 +243,7 @@ pub fn analyze_def(errors: Errors, context: Context, def: &Define) {
 
 pub fn get_func_type(context: Context, decl: &FunctionDecl) -> ResolvedType {
     let return_ty = if let Some(ty) = &decl.return_type {
-        context
-            .borrow()
-            .resolve_type(ty)
-            .unwrap_or(&ResolvedType::Unknown)
-            .clone()
+        context.borrow().resolve_type(ty).clone()
     } else {
         ResolvedType::Unknown
     };
@@ -208,11 +252,7 @@ pub fn get_func_type(context: Context, decl: &FunctionDecl) -> ResolvedType {
         .iter()
         .map(|(_, opt_arg_ty)| {
             if let Some(arg_ty) = opt_arg_ty {
-                context
-                    .borrow_mut()
-                    .resolve_type(arg_ty)
-                    .unwrap_or(&ResolvedType::Unknown)
-                    .clone()
+                context.borrow_mut().resolve_type(arg_ty).clone()
             } else {
                 ResolvedType::Unknown
             }
@@ -239,11 +279,7 @@ pub fn analyze_function(errors: Errors, context: Context, func: &Function) {
             match &arg_binding.value {
                 semantic_parser::semantic_ast::Binding::Simple(name) => {
                     let arg_ty = if let Some(arg_ty) = opt_arg_ty {
-                        context
-                            .borrow()
-                            .resolve_type(&arg_ty)
-                            .unwrap_or(&ResolvedType::Unknown)
-                            .clone()
+                        context.borrow().resolve_type(&arg_ty).clone()
                     } else {
                         ResolvedType::Unknown
                     };
@@ -263,6 +299,17 @@ pub fn analyze_function(errors: Errors, context: Context, func: &Function) {
     });
 }
 
+pub fn analyze_schema(_errors: Errors, context: Context, schema: &DefSchema) {
+    let ctx = context.borrow_mut();
+    let resolved = ctx.resolve_type(&schema.ty);
+    context
+        .borrow_mut()
+        .type_scopes
+        .last_mut()
+        .unwrap()
+        .insert(schema.name.to_owned(), resolved);
+}
+
 pub fn analyze_source(source: Source) -> Vec<AnalyzeError> {
     let mut errors = Vec::new();
     let context = Rc::new(RefCell::new(AnalyzeContext::new()));
@@ -273,6 +320,7 @@ pub fn analyze_source(source: Source) -> Vec<AnalyzeError> {
             TopLevel::Method(_) => todo!(),
             TopLevel::Def(def) => analyze_def(&mut errors, context.clone(), &def),
             TopLevel::Unknown => continue,
+            TopLevel::DefSchema(schema) => analyze_schema(&mut errors, context.clone(), &schema),
         }
     }
     errors

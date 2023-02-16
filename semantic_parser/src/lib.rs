@@ -13,11 +13,12 @@ use parser::{
 use paste::paste;
 use semantic_ast::*;
 use token_combinator::{
-    alt, context, many0_until_end, many1, map, map_res, opt, permutation, success, tuple,
-    TokenParseError, TokenParseErrorKind, TokenParseResult, TokenParser,
+    alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, TokenParseError,
+    TokenParseErrorKind, TokenParseResult, TokenParser,
 };
 
 type ASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>;
+type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, O, Located<AST<'a>>>;
 
 macro_rules! specific_symbol {
     ($name: tt, $sym_name: expr, $expect: expr) => {
@@ -50,6 +51,7 @@ specific_symbol!(ns, "ns", "ns");
 specific_symbol!(if, "if", "if");
 specific_symbol!(when, "when", "when");
 specific_symbol!(defn, "defn", "defn or schema.core/defn");
+specific_symbol!(defschema, "defschema", "schema.core/defschema");
 specific_symbol!(defmethod, "defmethod", "defmethod or schema.core/defmethod");
 specific_symbol!(def, "def", "def or schema.core/def");
 specific_symbol!(let, "let", "let or schema.core/let");
@@ -213,28 +215,39 @@ fn parse_ns_def<'a>(top_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Nam
     Ok((rest, ns_def))
 }
 
+fn parse_map_key<'a>(forms_in_map: &'a [Located<AST<'a>>]) -> NotLocatedASTParseResult<'a, MapKey> {
+    map(parse_expression, |expr| match expr.value {
+        Expression::IntLiteral(i) => MapKey::Integer(i),
+        Expression::StringLiteral(s) => MapKey::String(s),
+        Expression::Keyword(k) => MapKey::Keyword(k.fullname()),
+        _ => return MapKey::Unknown,
+    })(forms_in_map)
+}
+
 fn parse_type<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Type> {
-    context(
+    fn parse_map_type<'a>(forms: &'a [Located<AST<'a>>]) -> NotLocatedASTParseResult<'a, Type> {
+        map_res(parser::ast::parser::map, |res| match res {
+            Ok((_, forms_in_map)) => {
+                map(many0_until_end(tuple((parse_map_key, parse_type))), |kvs| {
+                    Type::Map(
+                        kvs.into_iter()
+                            .map(|(k, v)| (k, v.value))
+                            .collect::<Vec<_>>(),
+                    )
+                })(forms_in_map)
+            }
+            Err(err) => Err(err),
+        })(forms)
+    }
+    let (_1, ty) = context(
         "type",
         located(alt((
             map(symbol, |sym| Type::Scalar(sym.name.to_string())),
-            map_res(vector, |res| match res {
-                Ok((rest, vec)) => {
-                    if vec.len() != 1 {
-                        return Err(TokenParseError {
-                            errors: vec![TokenParseErrorKind::Other(
-                                "Array type elements must be only one",
-                            )],
-                            tokens_consumed: 0,
-                        });
-                    }
-                    let (rest, inner_type) = parse_type(rest)?;
-                    Ok((rest, Type::Array(Box::new(inner_type.value))))
-                }
-                Err(err) => Err(err),
-            }),
+            parse_map_type,
         ))),
-    )(forms)
+    )(forms)?;
+
+    Ok((&forms[1..], ty))
 }
 
 fn parse_annotation<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Type> {
@@ -287,7 +300,7 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                             },
                         )(forms);
                     }
-                    if let Ok((rest, _)) = when_symbol(forms) {
+                    if let Ok((_, _)) = when_symbol(forms) {
                         return map(
                             tuple((parse_expression, parse_expression)),
                             |(cond, if_true)| {
@@ -314,7 +327,6 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                             }),
                         ));
                     }
-                    println!("not let");
                     map(
                         tuple((parse_expression, many0_until_end(parse_expression))),
                         |(fn_exp, args)| {
@@ -366,15 +378,6 @@ fn parse_expression_and_box<'a>(
     forms: &'a [Located<AST<'a>>],
 ) -> ASTParseResult<'a, Box<Expression<'a>>> {
     located(map(parse_expression, |expr| Box::new(expr.value)))(forms)
-}
-
-#[test]
-fn parse_toplevel_test() {
-    let source = "(defn a [] 1)";
-
-    let (_, tokens) = lexer::tokenize(Span::from(source)).unwrap();
-    let (_, ast) = parser::parse_form(&tokens).unwrap();
-    let asts = &[ast];
 }
 
 pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, FunctionDecl> {
@@ -447,13 +450,29 @@ fn parse_def<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, D
                 def_symbol,
                 symbol,
                 opt(parse_annotation),
-                opt(string_literal),
+                opt(string_literal), // doc string
                 parse_expression,
             )),
             |(_, name_sym, ty, _, value)| Define {
                 name: name_sym.name,
                 ty,
                 value,
+            },
+        )),
+    )(&forms_in_list)?;
+
+    Ok((rest, def))
+}
+
+fn parse_defschema<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, DefSchema> {
+    let (rest, forms_in_list) = list(toplevel_forms)?;
+    let (_, def) = context(
+        "defschema",
+        located(map(
+            tuple((defschema_symbol, symbol, opt(string_literal), parse_type)),
+            |(_, name_sym, _, ty)| DefSchema {
+                name: name_sym.name.to_string(),
+                ty: ty.value,
             },
         )),
     )(&forms_in_list)?;
@@ -482,6 +501,7 @@ fn parse_toplevel<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
             map(parse_function, |func| TopLevel::Function(func.value)),
             map(parse_def, |def| TopLevel::Def(def.value)),
             map(parse_method, |method| TopLevel::Method(method.value)),
+            map(parse_defschema, |schema| TopLevel::DefSchema(schema.value)),
             map(success, |_| TopLevel::Unknown),
         ))),
     )(toplevel_forms)?;

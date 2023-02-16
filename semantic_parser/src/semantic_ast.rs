@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Write};
 
 use location::Located;
 use parser::ast::{Keyword, Symbol};
@@ -60,6 +60,8 @@ pub struct LetExpression<'a> {
 pub enum Expression<'a> {
     IntLiteral(i64),
     FloatLiteral(f64),
+    StringLiteral(String),
+    RegexLiteral(String),
     Keyword(&'a Keyword<'a>),
     SymbolRef(&'a Symbol<'a>),
     SetLiteral(Vec<Located<Expression<'a>>>),
@@ -74,11 +76,64 @@ pub enum Expression<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum MapKey {
+    Type(Type),
+    Keyword(String),
+    String(String),
+    Integer(i64),
+    Unknown,
+}
+
+impl Display for MapKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MapKey::Keyword(k) => k.fmt(f),
+            MapKey::String(s) => s.fmt(f),
+            MapKey::Integer(i) => i.fmt(f),
+            MapKey::Unknown => write!(f, "Unknown"),
+            MapKey::Type(ty) => ty.fmt(f),
+        }
+    }
+}
+
+impl Into<Type> for MapKey {
+    fn into(self) -> Type {
+        match self {
+            MapKey::Type(t) => t,
+            MapKey::Keyword(_) => Type::Scalar("Keyword".to_owned()),
+            MapKey::String(_) => Type::Scalar("Str".to_owned()),
+            MapKey::Integer(_) => Type::Scalar("Int".to_owned()),
+            MapKey::Unknown => Type::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Type {
     Scalar(String),
     Array(Box<Type>),
+    Map(Vec<(MapKey, Type)>),
     Any,
     Unknown,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Scalar(s) => s.fmt(f),
+            Type::Array(t) => write!(f, "[{}]", t),
+            Type::Map(kvs) => {
+                f.write_char('{')?;
+                for (k, v) in kvs {
+                    writeln!(f, "{} {}", k, v)?;
+                }
+                f.write_char('}')?;
+                Ok(())
+            }
+            Type::Any => f.write_str("Any"),
+            Type::Unknown => f.write_str("Unknown"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -93,6 +148,12 @@ pub struct Define<'a> {
     pub name: &'a str,
     pub ty: Option<Located<Type>>,
     pub value: Located<Expression<'a>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct DefSchema {
+    pub name: String,
+    pub ty: Type,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -145,6 +206,7 @@ pub struct NamespaceDef {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TopLevel<'a> {
+    DefSchema(DefSchema),
     NamespaceDef(NamespaceDef),
     Function(Function<'a>),
     Method(Method),

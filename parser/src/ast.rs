@@ -5,13 +5,33 @@ use token_combinator::TokenParser;
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,
     pub name: &'a str,
-    pub metadata: Option<Vec<Located<AST<'a>>>>
+    pub metadata: Option<Vec<Located<AST<'a>>>>,
+}
+
+impl Symbol<'_> {
+    pub fn fullname(&self) -> String {
+        if let Some(ns) = self.ns {
+            format!("{}/{}", ns, self.name)
+        } else {
+            self.name.to_owned()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Keyword<'a> {
     pub ns: Option<&'a str>,
     pub name: &'a str,
+}
+
+impl Keyword<'_> {
+    pub fn fullname(&self) -> String {
+        if let Some(ns) = self.ns {
+            format!("::{}/{}", ns, self.name)
+        } else {
+            self.name.to_owned()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, TokenParser)]
@@ -28,7 +48,7 @@ pub enum AST<'a> {
     Keyword(Keyword<'a>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),
-    Root(Vec<Located<AST<'a>>>)
+    Root(Vec<Located<AST<'a>>>),
 }
 
 impl AST<'_> {
@@ -56,7 +76,7 @@ impl AST<'_> {
             None
         }
     }
-    
+
     pub fn vector_or_none(&self) -> Option<&Vec<Located<AST<'_>>>> {
         if let AST::Vector(v) = self {
             Some(v)
@@ -64,7 +84,7 @@ impl AST<'_> {
             None
         }
     }
-    
+
     pub fn list_or_none(&self) -> Option<&Vec<Located<AST<'_>>>> {
         if let AST::List(v) = self {
             Some(v)
@@ -73,7 +93,6 @@ impl AST<'_> {
         }
     }
 }
-
 
 pub fn root<'a, W>(
     tokens: &'a [W],
@@ -87,11 +106,10 @@ where
         Ok((&tokens[1..], (_1)))
     } else {
         Err(token_combinator::TokenParseError {
-            errors: vec![
-                token_combinator::TokenParseErrorKind::Expects {
-                    expects: "root",
-                    found: token.clone(),
-                },],
+            errors: vec![token_combinator::TokenParseErrorKind::Expects {
+                expects: "root",
+                found: token.clone(),
+            }],
             tokens_consumed: 0,
         })
     }
