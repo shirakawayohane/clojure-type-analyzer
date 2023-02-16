@@ -8,3 +8,7 @@ edition = "2021"
 [dependencies]
 semantic_parser = { path = "../semantic_parser" }
 location = { path  = "../location" }
+enum-kinds-macros = "0.2.1"
+derive_is_enum_variant = "0.1.1"
+lexer = { path =  "../lexer" }
+parser = { path = "../parser" }
