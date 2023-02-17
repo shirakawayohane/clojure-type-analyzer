@@ -13,7 +13,7 @@ pub(crate) fn analyze_expression(errors: Errors, context: Context, expr: &Locate
                     } else {
                         ResolvedType::Unknown
                     };
-                    if !value_ty.is_assinable_to(&annotated_ty, context.clone()) {
+                    if !value_ty.is_assignable_to(&annotated_ty, context.clone()) {
                         errors.push(AnalyzeError {
                             loc: value.range,
                             message: format!("{} is not assignable to {}", value_ty, annotated_ty),
@@ -54,9 +54,9 @@ pub(crate) fn analyze_expression(errors: Errors, context: Context, expr: &Locate
                 for (i, arg) in call_expr.args.iter().enumerate() {
                     if let Some(argument_ty) = arg_types.get(i) {
                         let value_ty = infer_expression_type(errors, context.clone(), &arg);
-                        if !value_ty.is_assinable_to(argument_ty, context.clone()) {
+                        if !value_ty.is_assignable_to(argument_ty, context.clone()) {
                             errors.push(AnalyzeError {
-                                loc: expr.range,
+                                loc: arg.range,
                                 message: format!(
                                     "{} is not assignable to {}",
                                     value_ty, argument_ty,

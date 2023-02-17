@@ -93,6 +93,12 @@ fn located<'a, O>(
 ) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>
 {
     move |forms: &'a [Located<AST<'a>>]| {
+        if forms.is_empty() {
+            return Err(TokenParseError {
+                errors: vec![TokenParseErrorKind::NotEnoughToken],
+                tokens_consumed: 0,
+            });
+        }
         let from = forms[0].range;
         let (rest, output) = parser.parse(forms)?;
         let to = rest.get(0).unwrap_or(forms.last().unwrap()).range;
@@ -220,6 +226,7 @@ fn parse_map_key<'a>(forms_in_map: &'a [Located<AST<'a>>]) -> NotLocatedASTParse
         Expression::IntLiteral(i) => MapKey::Integer(i),
         Expression::StringLiteral(s) => MapKey::String(s),
         Expression::Keyword(k) => MapKey::Keyword(k.fullname()),
+        Expression::SymbolRef(s) => MapKey::Type(Type::Scalar(s.fullname())),
         _ => return MapKey::Unknown,
     })(forms_in_map)
 }

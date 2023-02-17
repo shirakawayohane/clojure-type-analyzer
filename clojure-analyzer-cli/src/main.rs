@@ -13,7 +13,10 @@ fn main() -> anyhow::Result<()> {
     for error in errors {
         println!(
             "{}:{}:{}: {}",
-            file_path, error.loc.0.line, error.loc.0.col, error.message
+            file_path,
+            error.loc.0.line,
+            error.loc.0.col - 1,
+            error.message
         );
     }
     Ok(())

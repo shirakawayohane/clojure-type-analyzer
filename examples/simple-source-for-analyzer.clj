@@ -1,18 +1,22 @@
 (ns core)
 
-(s/defschema SchemaA
-  {:a s/Int
-   :b s/Str})
+(s/defn add-one :- s/Str ;; サンプルコード
+  [a :- s/Int]
+  (+ a 1))
 
-(s/def A :- SchemaA
-  {:a 1
-   :b 2}) ;; error
+;; (s/defschema SchemaA
+;;   {:a s/Int
+;;    :b s/Str})
 
-(s/defn add :- s/Str
-  [a :- s/Int
-   b :- s/Int]
-  (+ a b))
+;; (s/def A :- SchemaA
+;;   {:a 1
+;;    :b 2}) ;; error
 
-(defn main []
-  (s/let [a :- s/Str 1] ;; error
-    (add 1 a))) ;; error
+;; (s/defn add :- s/Str
+;;   [a :- s/Int
+;;    b :- s/Int]
+;;   (+ a b))
+
+;; (defn main []
+;;   (s/let [a :- s/Str 1] ;; error
+;;     (add 1 a))) ;; error

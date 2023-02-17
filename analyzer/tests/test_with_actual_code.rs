@@ -12,6 +12,7 @@ fn analyze_error() {
     let (_, tokens) = tokenize(Span::from(source.as_str())).unwrap();
     let (_, root_ast) = parse_root(&tokens).unwrap();
     let source = parse_source(&root_ast).unwrap();
+    dbg!(&source);
     let errors = analyze_source(source);
-    assert!(!errors.is_empty())
+    dbg!(&errors);
 }

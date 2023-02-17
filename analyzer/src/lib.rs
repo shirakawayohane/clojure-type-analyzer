@@ -59,7 +59,7 @@ impl Display for ResolvedType {
 }
 
 impl ResolvedType {
-    pub fn is_assinable_to(&self, other: &Self, context: Context) -> bool {
+    pub fn is_assignable_to(&self, other: &Self, context: Context) -> bool {
         if other.is_unknown() {
             return true;
         }
@@ -71,13 +71,14 @@ impl ResolvedType {
             ResolvedType::Keyword => other.is_keyword(),
             ResolvedType::Array(inner_type) => {
                 if let ResolvedType::Array(other_inner_type) = *inner_type.clone() {
-                    inner_type.is_assinable_to(&other_inner_type, context)
+                    inner_type.is_assignable_to(&other_inner_type, context)
                 } else {
                     false
                 }
             }
             ResolvedType::Map(kvs) => {
                 if let ResolvedType::Map(other_kvs) = other {
+                    dbg!(other_kvs);
                     if other_kvs.len() == 1 {
                         if let MapKey::Type(other_key_ty) = other_kvs.keys().next().unwrap() {
                             let resolved_other_key_ty = context.borrow().resolve_type(other_key_ty);
@@ -91,9 +92,9 @@ impl ResolvedType {
                                     MapKey::Unknown => ResolvedType::Unknown,
                                 };
                                 if !resolved_k_ty
-                                    .is_assinable_to(&resolved_other_key_ty, context.clone())
+                                    .is_assignable_to(&resolved_other_key_ty, context.clone())
                                     || !resolved_v_ty
-                                        .is_assinable_to(resolved_other_value_ty, context.clone())
+                                        .is_assignable_to(resolved_other_value_ty, context.clone())
                                 {
                                     return false;
                                 }
@@ -104,12 +105,13 @@ impl ResolvedType {
 
                     for (other_k, other_v_ty) in other_kvs {
                         if let Some(self_v) = kvs.get(other_k) {
-                            if self_v.is_assinable_to(other_v_ty, context.clone()) {
+                            if self_v.is_assignable_to(other_v_ty, context.clone()) {
                                 continue;
                             }
                         }
                         return false;
                     }
+                    return true;
                 }
                 return false;
             }
@@ -278,7 +280,7 @@ pub fn analyze_def(errors: Errors, context: Context, def: &Define) {
     let value_ty = infer_expression_type(errors, context.clone(), &def.value);
     if let Some(ty) = &def.ty {
         let resolved = context.borrow().resolve_type(&ty);
-        if !value_ty.is_assinable_to(&resolved, context.clone()) {
+        if !value_ty.is_assignable_to(&resolved, context.clone()) {
             errors.push(AnalyzeError {
                 loc: def.value.range,
                 message: format!("{} is not assinable to {}", value_ty, resolved),
