@@ -6,6 +6,7 @@
     "semantic_parser/Cargo.toml",
     "token_combinator/lib/Cargo.toml",
     "token_combinator/macros/Cargo.toml",
-    "analyzer/Cargo.toml"
+    "analyzer/Cargo.toml",
+    "clojure-analyzer-cli/Cargo.toml"
   ]
 }

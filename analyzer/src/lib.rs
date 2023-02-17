@@ -27,6 +27,7 @@ pub enum ResolvedType {
         return_ty: Box<ResolvedType>,
         arg_types: Vec<ResolvedType>,
     },
+    Class(String),
     Unknown,
 }
 
@@ -47,11 +48,12 @@ impl Display for ResolvedType {
             ResolvedType::Map(kvp) => {
                 f.write_char('{')?;
                 for (k, v) in kvp.iter() {
-                    write!(f, "{} {}", k, v)?;
+                    write!(f, "{} {}, ", k, v)?;
                 }
                 f.write_char('}')?;
                 Ok(())
             }
+            ResolvedType::Class(name) => f.write_str(&name),
         }
     }
 }
@@ -78,24 +80,51 @@ impl ResolvedType {
                 if let ResolvedType::Map(other_kvs) = other {
                     if other_kvs.len() == 1 {
                         if let MapKey::Type(other_key_ty) = other_kvs.keys().next().unwrap() {
-                            let ctx = context.borrow();
-                            let resolved_other_key_ty = ctx.resolve_type(other_key_ty);
+                            let resolved_other_key_ty = context.borrow().resolve_type(other_key_ty);
                             let resolved_other_value_ty = other_kvs.values().next().unwrap();
-                            for (k, _v) in kvs.iter() {
-                                let resolved_k_ty = ctx.resolve_type(&Type::from(k));
-                                let resolved_v_ty = ctx.resolve_type(v);
+                            for (k, resolved_v_ty) in kvs.iter() {
+                                let resolved_k_ty = match k {
+                                    MapKey::Type(t) => context.borrow().resolve_type(t),
+                                    MapKey::Keyword(_) => ResolvedType::Keyword,
+                                    MapKey::String(_) => ResolvedType::Str,
+                                    MapKey::Integer(_) => ResolvedType::Int,
+                                    MapKey::Unknown => ResolvedType::Unknown,
+                                };
+                                if !resolved_k_ty
+                                    .is_assinable_to(&resolved_other_key_ty, context.clone())
+                                    || !resolved_v_ty
+                                        .is_assinable_to(resolved_other_value_ty, context.clone())
+                                {
+                                    return false;
+                                }
                             }
                             return true;
                         }
                     }
+
+                    for (other_k, other_v_ty) in other_kvs {
+                        if let Some(self_v) = kvs.get(other_k) {
+                            if self_v.is_assinable_to(other_v_ty, context.clone()) {
+                                continue;
+                            }
+                        }
+                        return false;
+                    }
                 }
-                return true;
+                return false;
             }
             ResolvedType::Unknown => true,
             ResolvedType::Fn {
                 return_ty: _,
                 arg_types: _,
             } => other.is_fn(), // TODO https://github.com/WiZLite/clojure-parser-rs/issues/6
+            ResolvedType::Class(name) => {
+                if let ResolvedType::Class(other_name) = other {
+                    name == other_name
+                } else {
+                    false
+                }
+            }
         }
     }
 }
@@ -134,7 +163,7 @@ impl AnalyzeContext {
             match ty {
                 Type::Scalar(name) => {
                     if let Some(ty) = types_in_scope.get(name) {
-                        return *ty;
+                        return ty.clone();
                     } else {
                         return ResolvedType::Unknown;
                     }
@@ -142,7 +171,13 @@ impl AnalyzeContext {
                 Type::Array(inner_type) => {
                     return ResolvedType::Array(Box::new(self.resolve_type(inner_type)))
                 }
-                Type::Map(_) => todo!(),
+                Type::Map(kvs) => {
+                    return ResolvedType::Map(
+                        kvs.into_iter()
+                            .map(|(k, v)| (k.clone(), self.resolve_type(v)))
+                            .collect::<HashMap<_, _>>(),
+                    )
+                }
                 Type::Any => todo!(),
                 Type::Unknown => todo!(),
             }
@@ -161,8 +196,8 @@ impl AnalyzeContext {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnalyzeError {
-    loc: (Location, Location),
-    message: String,
+    pub loc: (Location, Location),
+    pub message: String,
 }
 
 #[macro_export]
@@ -196,7 +231,24 @@ pub fn infer_expression_type<'a>(
             .clone(),
         Expression::SetLiteral(_) => todo!(),
         Expression::VectorLiteral(_) => todo!(),
-        Expression::MapLiteral(_) => todo!(),
+        Expression::MapLiteral(kvs) => ResolvedType::Map(
+            kvs.into_iter()
+                .map(|(k, v)| {
+                    let map_key = match &k.value {
+                        Expression::IntLiteral(i) => MapKey::Integer(*i),
+                        Expression::FloatLiteral(_) => MapKey::Type(Type::Scalar("Num".to_owned())),
+                        Expression::StringLiteral(s) => MapKey::String(s.to_owned()),
+                        Expression::RegexLiteral(_) => {
+                            MapKey::Type(Type::Scalar("java.util.regex.Pattern".to_owned()))
+                        }
+                        Expression::Keyword(k) => MapKey::Keyword(k.fullname()),
+                        _ => MapKey::Unknown,
+                    };
+                    let v_ty = infer_expression_type(errors, context.clone(), v);
+                    (map_key, v_ty)
+                })
+                .collect(),
+        ),
         Expression::Call(call_expr) => {
             if let ResolvedType::Fn {
                 return_ty,
@@ -266,7 +318,6 @@ pub fn get_func_type(context: Context, decl: &FunctionDecl) -> ResolvedType {
 }
 
 pub fn analyze_function(errors: Errors, context: Context, func: &Function) {
-    println!("analyzing function");
     let func_ty = get_func_type(context.clone(), &func.decl);
     context
         .borrow_mut()
@@ -300,8 +351,7 @@ pub fn analyze_function(errors: Errors, context: Context, func: &Function) {
 }
 
 pub fn analyze_schema(_errors: Errors, context: Context, schema: &DefSchema) {
-    let ctx = context.borrow_mut();
-    let resolved = ctx.resolve_type(&schema.ty);
+    let resolved = context.borrow().resolve_type(&schema.ty);
     context
         .borrow_mut()
         .type_scopes

@@ -3,13 +3,10 @@ use location::Located;
 use semantic_parser::semantic_ast::{Binding, CallExpression, Expression};
 
 pub(crate) fn analyze_expression(errors: Errors, context: Context, expr: &Located<Expression>) {
-    println!("analyzing expression");
     match &expr.value {
         Expression::Let(let_expr) => {
-            println!("analyzing let expression");
             variable_scope!(context, {
                 for (binding, annotation, value) in &let_expr.bindings {
-                    dbg!(expr);
                     let value_ty = infer_expression_type(errors, context.clone(), &value);
                     let annotated_ty = if let Some(annotation_ty) = annotation {
                         context.borrow().resolve_type(&annotation_ty).clone()
