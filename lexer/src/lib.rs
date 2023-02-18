@@ -159,7 +159,7 @@ fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
         not(digit1),
         take_till1(|x: char| {
-            !x.is_alphanumeric() && !"*+!-_?.<>%".contains(x)
+            !x.is_alphanumeric() && !"*+!-_?.<>%=$".contains(x)
         }),
     ))(input)
 }
