@@ -115,7 +115,7 @@ fn parse_map(tokens: Tokens) -> ParseResult {
                 if kvs.len() % 2 != 0 {
                     return Err(TokenParseError {
                         errors: vec![TokenParseErrorKind::Other(
-                            "map must have even number of forms",
+                            "map must have even number of forms".to_owned(),
                         )],
                         tokens_consumed: kvs.len(),
                     });

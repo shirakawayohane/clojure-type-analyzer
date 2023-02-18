@@ -18,7 +18,7 @@ pub enum TokenParseErrorKind<T> {
     NotEnoughToken,
     Fail,
     Context(&'static str),
-    Other(&'static str),
+    Other(String),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

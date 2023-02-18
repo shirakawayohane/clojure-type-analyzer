@@ -127,7 +127,7 @@ fn parse_require<'a>(forms_in_ns_list: &'a [Located<AST<'a>>]) -> ASTParseResult
     ) -> ASTParseResult<'a, NamespaceOnly> {
         if forms_in_vec.len() != 0 {
             return Err(TokenParseError {
-                errors: vec![TokenParseErrorKind::Other("Invalid require vector")],
+                errors: vec![TokenParseErrorKind::Other("Invalid require vector".to_owned())],
                 tokens_consumed: 0,
             });
         }
