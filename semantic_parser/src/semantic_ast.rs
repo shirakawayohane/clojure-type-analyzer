@@ -138,9 +138,16 @@ impl Display for Type {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct Argument {
+    pub binding: Located<Binding>,
+    pub ty_annotation: Option<Located<Type>>,
+    pub is_var_arg: bool
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDecl {
     pub name: String,
-    pub arguments: Vec<(Located<Binding>, Option<Located<Type>>)>,
+    pub arguments: Vec<Located<Argument>>,
     pub return_type: Option<Located<Type>>,
 }
 

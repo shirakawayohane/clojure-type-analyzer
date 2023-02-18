@@ -315,9 +315,9 @@ pub fn get_func_type(context: Context, decl: &FunctionDecl) -> ResolvedType {
     let arg_types = decl
         .arguments
         .iter()
-        .map(|(_, opt_arg_ty)| {
-            if let Some(arg_ty) = opt_arg_ty {
-                context.borrow_mut().resolve_type(arg_ty).clone()
+        .map(|arg| {
+            if let Some(arg_ty) = &arg.ty_annotation {
+                context.borrow_mut().resolve_type(&arg_ty.value).clone()
             } else {
                 ResolvedType::Unknown
             }
@@ -339,10 +339,11 @@ pub fn analyze_function(errors: Errors, context: Context, func: &Function) {
         .unwrap()
         .insert(func.decl.name.clone(), func_ty);
     variable_scope!(context, {
-        for (arg_binding, opt_arg_ty) in &func.decl.arguments {
-            match &arg_binding.value {
+        for arg in &func.decl.arguments {
+
+            match &arg.binding.value {
                 semantic_parser::semantic_ast::Binding::Simple(name) => {
-                    let arg_ty = if let Some(arg_ty) = opt_arg_ty {
+                    let arg_ty = if let Some(arg_ty) = &arg.ty_annotation {
                         context.borrow().resolve_type(&arg_ty).clone()
                     } else {
                         ResolvedType::Unknown

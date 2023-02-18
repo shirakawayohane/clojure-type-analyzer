@@ -147,6 +147,10 @@ fn sharp(input: Span) -> TokenizeResult {
     located(map(char('#'), |_| Token::Sharp))(input)
 }
 
+fn and(input: Span) -> TokenizeResult {
+    located(map(char('&'), |_| Token::And))(input)
+}
+
 fn quote(input: Span) -> TokenizeResult {
     located(map(char('\''), |_| Token::Quote))(input)
 }
@@ -201,6 +205,7 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             hat,
             sharp,
             symbol,
+            and,
             keyword,
             string_literal,
             integer,

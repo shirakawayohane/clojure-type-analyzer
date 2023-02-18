@@ -60,6 +60,10 @@ fn parse_symbol(tokens: Tokens) -> ParseResult {
     ))(tokens)
 }
 
+fn parse_and(tokens: Tokens) -> ParseResult {
+    located(map(and, |_| AST::And))(tokens)
+}
+
 fn parse_keyword(tokens: Tokens) -> ParseResult {
     located(map(keyword, |keyword_str| {
         let name = if keyword_str.starts_with("::") {
@@ -161,6 +165,7 @@ fn parse_syntax_quoted_form(tokens: Tokens) -> ParseResult {
 pub fn parse_form(tokens: Tokens) -> ParseResult {
     alt((
         parse_symbol,
+        parse_and,
         parse_keyword,
         parse_string_literal,
         parse_integer_literal,

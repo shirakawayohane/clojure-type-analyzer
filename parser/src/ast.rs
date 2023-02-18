@@ -46,6 +46,7 @@ pub enum AST<'a> {
     Set(Vec<Located<AST<'a>>>),
     Map(Vec<Located<AST<'a>>>),
     Symbol(Symbol<'a>),
+    And,
     Keyword(Keyword<'a>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),

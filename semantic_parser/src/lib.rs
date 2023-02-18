@@ -5,7 +5,10 @@ use anyhow::Result;
 use location::{Located, Span};
 use parser::{
     ast::{
-        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector},
+        parser::{
+            float_literal, integer_literal, keyword, list, string_literal, symbol,
+            vector,
+        },
         Keyword, Symbol,
     },
     AST,
@@ -127,7 +130,9 @@ fn parse_require<'a>(forms_in_ns_list: &'a [Located<AST<'a>>]) -> ASTParseResult
     ) -> ASTParseResult<'a, NamespaceOnly> {
         if forms_in_vec.len() != 0 {
             return Err(TokenParseError {
-                errors: vec![TokenParseErrorKind::Other("Invalid require vector".to_owned())],
+                errors: vec![TokenParseErrorKind::Other(
+                    "Invalid require vector".to_owned(),
+                )],
                 tokens_consumed: 0,
             });
         }
@@ -379,7 +384,7 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                     let (_, exprs) = many0_until_end(parse_expression)(&forms_in_list)?;
                     Ok((rest, Expression::AnonymousFn(exprs)))
                 }
-                Err(err) => Err(err)
+                Err(err) => Err(err),
             }),
             map(parser::ast::parser::list, |_| Expression::Unknown),
         ))),
@@ -395,6 +400,20 @@ fn parse_expression_and_box<'a>(
 }
 
 pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, FunctionDecl> {
+    fn parse_argument<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Argument> {
+        located(map(
+            tuple((
+                opt(parser::ast::parser::and),
+                parse_binding,
+                opt(parse_annotation),
+            )),
+            |(opt_and, binding, ty_annotation)| Argument {
+                is_var_arg: opt_and.is_some(),
+                binding,
+                ty_annotation,
+            },
+        ))(forms)
+    }
     context(
         "function definition",
         located(map(
@@ -405,10 +424,7 @@ pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
                 opt(parse_annotation),
                 map_res(vector, |res| match res {
                     Ok((rest, args_vec)) => {
-                        let (_, args) = many0_until_end(tuple((
-                            parse_binding,
-                            opt(parse_annotation),
-                        )))(&args_vec)?;
+                        let (_, args) = many0_until_end(parse_argument)(&args_vec)?;
                         Ok((rest, args))
                     }
                     Err(err) => Err(err),
