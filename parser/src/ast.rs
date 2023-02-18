@@ -40,6 +40,7 @@ pub enum AST<'a> {
     FloatLiteral(f64),
     StringLiteral(&'a str),
     RegexLiteral(&'a str),
+    AnonymousFn(Vec<Located<AST<'a>>>),
     List(Vec<Located<AST<'a>>>),
     Vector(Vec<Located<AST<'a>>>),
     Set(Vec<Located<AST<'a>>>),

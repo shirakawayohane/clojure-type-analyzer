@@ -140,6 +140,12 @@ fn parse_regex_literal(tokens: Tokens) -> ParseResult {
     }))(tokens)
 }
 
+fn parse_anonymous_fn(tokens: Tokens) -> ParseResult {
+    located(map(preceded(sharp, many0(parse_list)), |list| {
+       AST::AnonymousFn(list) 
+    }))(tokens)
+}
+
 fn parse_quoted_form(tokens: Tokens) -> ParseResult {
     located(map(preceded(quote, parse_form), |form| {
         AST::Quoted(Box::new(form))
@@ -164,6 +170,7 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_map,
         parse_set,
         parse_regex_literal,
+        parse_anonymous_fn,
         parse_quoted_form,
         parse_syntax_quoted_form,
     ))(tokens)

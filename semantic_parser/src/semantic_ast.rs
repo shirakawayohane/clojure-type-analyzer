@@ -72,6 +72,7 @@ pub enum Expression<'a> {
     If(IfExpression<'a>),
     Cond(CondExpression<'a>),
     Let(LetExpression<'a>),
+    AnonymousFn(Vec<Located<Expression<'a>>>),
     Unknown,
 }
 

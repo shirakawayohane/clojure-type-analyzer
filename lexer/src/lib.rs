@@ -155,13 +155,11 @@ fn syntax_quote(input: Span) -> TokenizeResult {
     located(map(char('`'), |_| Token::SyntaxQuote))(input)
 }
 
-const CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL: [char; 9] = ['*', '+', '!', '-', '_', '?', '.', '<', '>'];
-
 fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
         not(digit1),
         take_till1(|x: char| {
-            !x.is_alphanumeric() && !CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL.contains(&x)
+            !x.is_alphanumeric() && !"*+!-_?.<>%".contains(x)
         }),
     ))(input)
 }

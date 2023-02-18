@@ -273,6 +273,17 @@ pub fn infer_expression_type<'a>(
         }
         Expression::Unknown => todo!(),
         Expression::When(_) => todo!(),
+        Expression::AnonymousFn(exprs) => {
+            if exprs.len() == 0 {
+                ResolvedType::Nil
+            } else {
+                if let ResolvedType::Fn { return_ty, arg_types: _ } = infer_expression_type(errors, context, exprs.first().unwrap()) {
+                    *return_ty
+                } else {
+                    ResolvedType::Unknown
+                }
+            }
+        },
     }
 }
 

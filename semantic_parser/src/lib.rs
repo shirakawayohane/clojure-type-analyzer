@@ -374,6 +374,13 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                 }
                 Err(err) => Err(err),
             }),
+            map_res(parser::ast::parser::anonymous_fn, |res| match res {
+                Ok((rest, forms_in_list)) => {
+                    let (_, exprs) = many0_until_end(parse_expression)(&forms_in_list)?;
+                    Ok((rest, Expression::AnonymousFn(exprs)))
+                }
+                Err(err) => Err(err)
+            }),
             map(parser::ast::parser::list, |_| Expression::Unknown),
         ))),
     )(forms)?;
