@@ -5,10 +5,7 @@ use anyhow::Result;
 use location::{Located, Span};
 use parser::{
     ast::{
-        parser::{
-            float_literal, integer_literal, keyword, list, string_literal, symbol,
-            vector,
-        },
+        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector},
         Keyword, Symbol,
     },
     AST,

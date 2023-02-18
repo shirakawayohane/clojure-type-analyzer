@@ -60,6 +60,26 @@ fn parse_symbol(tokens: Tokens) -> ParseResult {
     ))(tokens)
 }
 
+fn parse_unquoted_symbol(tokens: Tokens) -> ParseResult {
+    located(map(preceded(tilde, parse_symbol), |sym_ast| {
+        if let AST::Symbol(sym) = sym_ast.value {
+            AST::Unquoted(sym)
+        } else {
+            unreachable!();
+        }
+    }))(tokens)
+}
+
+fn parse_unquoted_splicing_symbol(tokens: Tokens) -> ParseResult {
+    located(map(preceded(tilde_at, parse_symbol), |sym_ast| {
+        if let AST::Symbol(sym) = sym_ast.value {
+            AST::UnquotedSplicing(sym)
+        } else {
+            unreachable!();
+        }
+    }))(tokens)
+}
+
 fn parse_and(tokens: Tokens) -> ParseResult {
     located(map(and, |_| AST::And))(tokens)
 }
@@ -150,7 +170,7 @@ fn parse_regex_literal(tokens: Tokens) -> ParseResult {
 
 fn parse_anonymous_fn(tokens: Tokens) -> ParseResult {
     located(map(preceded(sharp, many0(parse_list)), |list| {
-       AST::AnonymousFn(list) 
+        AST::AnonymousFn(list)
     }))(tokens)
 }
 
@@ -169,7 +189,6 @@ fn parse_syntax_quoted_form(tokens: Tokens) -> ParseResult {
 pub fn parse_form(tokens: Tokens) -> ParseResult {
     alt((
         parse_symbol,
-        parse_and,
         parse_keyword,
         parse_char_literal,
         parse_string_literal,
@@ -181,7 +200,10 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_set,
         parse_regex_literal,
         parse_anonymous_fn,
+        parse_and,
         parse_quoted_form,
+        parse_unquoted_symbol,
+        parse_unquoted_splicing_symbol,
         parse_syntax_quoted_form,
     ))(tokens)
 }

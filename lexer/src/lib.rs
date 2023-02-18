@@ -8,9 +8,9 @@ use nom::{
     bytes::complete::tag,
     bytes::complete::{take, take_till, take_till1},
     character::complete::{
-        char, digit0, digit1, hex_digit1, line_ending, multispace1, oct_digit1, one_of,
+        char, digit0, digit1, hex_digit1, line_ending, multispace1, oct_digit1, one_of, space1,
     },
-    combinator::{eof, map, map_res, not, opt, recognize, success},
+    combinator::{eof, map, map_res, not, opt, recognize},
     multi::{many0, many1},
     sequence::{delimited, preceded, terminated, tuple},
     IResult, Parser,
@@ -84,14 +84,11 @@ fn rbrace(input: Span) -> TokenizeResult {
 
 fn char_literal(input: Span) -> TokenizeResult {
     fn anychar(s: Span) -> IResult<Span, char> {
-        map(take(1usize), |s: Span| {
-            s.chars().next().unwrap()
-        })(s)
+        map(take(1usize), |s: Span| s.chars().next().unwrap())(s)
     }
-    located(map(
-        preceded(char('\\'), anychar),
-        |c| Token::CharLiteral(c)
-    ))(input)
+    located(map(preceded(char('\\'), anychar), |c| {
+        Token::CharLiteral(c)
+    }))(input)
 }
 
 fn string_literal(input: Span) -> TokenizeResult {
@@ -160,7 +157,7 @@ fn sharp(input: Span) -> TokenizeResult {
 }
 
 fn and(input: Span) -> TokenizeResult {
-    located(map(char('&'), |_| Token::And))(input)
+    located(map(terminated(char('&'), space1), |_| Token::And))(input)
 }
 
 fn quote(input: Span) -> TokenizeResult {
@@ -169,6 +166,14 @@ fn quote(input: Span) -> TokenizeResult {
 
 fn syntax_quote(input: Span) -> TokenizeResult {
     located(map(char('`'), |_| Token::SyntaxQuote))(input)
+}
+
+fn tilde_at(input: Span) -> TokenizeResult {
+    located(map(tag("~@"), |_| Token::TildeAt))(input)
+}
+
+fn tilde(input: Span) -> TokenizeResult {
+    located(map(char('~'), |_| Token::Tilde))(input)
 }
 
 fn name(input: Span) -> IResult<Span, Span> {
@@ -214,8 +219,10 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             syntax_quote,
             hat,
             sharp,
-            symbol,
+            tilde_at,
+            tilde,
             and,
+            symbol,
             keyword,
             char_literal,
             string_literal,

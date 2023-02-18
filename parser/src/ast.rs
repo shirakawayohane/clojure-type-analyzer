@@ -48,6 +48,8 @@ pub enum AST<'a> {
     Map(Vec<Located<AST<'a>>>),
     Symbol(Symbol<'a>),
     And,
+    Unquoted(Symbol<'a>),
+    UnquotedSplicing(Symbol<'a>),
     Keyword(Keyword<'a>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),
