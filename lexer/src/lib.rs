@@ -152,6 +152,10 @@ fn hat(input: Span) -> TokenizeResult {
     located(map(char('^'), |_| Token::Hat))(input)
 }
 
+fn sharp_underscore(input: Span) -> TokenizeResult {
+    located(map(tag("#_"), |_| Token::SharpUnderescore))(input)
+}
+
 fn sharp(input: Span) -> TokenizeResult {
     located(map(char('#'), |_| Token::Sharp))(input)
 }
@@ -218,6 +222,7 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             quote,
             syntax_quote,
             hat,
+            sharp_underscore,
             sharp,
             tilde_at,
             tilde,

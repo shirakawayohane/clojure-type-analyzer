@@ -17,6 +17,7 @@ pub enum TokenParseErrorKind<T> {
     Expects { expects: &'static str, found: T },
     NotEnoughToken,
     Fail,
+    InfiniteLoop,
     Context(&'static str),
     Other(String),
 }
@@ -28,6 +29,12 @@ pub struct TokenParseError<T> {
 }
 
 impl<T> TokenParseError<T> {
+    pub fn from_error_kind(kind: TokenParseErrorKind<T>) -> Self {
+        TokenParseError {
+            errors: vec![kind],
+            tokens_consumed: 0,
+        }
+    }
     pub fn with_tokens_consumed(self, tokens_consumed: usize) -> Self {
         TokenParseError {
             errors: self.errors,
@@ -74,11 +81,9 @@ pub fn context<'a, T, O, W: 'a>(
     context: &'static str,
     mut parser: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W>,
 ) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
-    move |tokens: &'a [W]| {
-        match parser(tokens) {
-            Err(err) => Err(err.with_error_appended(TokenParseErrorKind::Context(context))),
-            ok => ok,
-        }
+    move |tokens: &'a [W]| match parser(tokens) {
+        Err(err) => Err(err.with_error_appended(TokenParseErrorKind::Context(context))),
+        ok => ok,
     }
 }
 
@@ -91,10 +96,15 @@ where
     move |tokens: &'a [W]| {
         let mut vec = Vec::new();
         let mut rest = tokens;
+        let mut last_len = rest.len();
         let mut succeeded_at_least_once = false;
         while rest.len() > 0 {
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
+                    if rest_tokens.len() == last_len {
+                        return Err(TokenParseError::from_error_kind(TokenParseErrorKind::InfiniteLoop));
+                    }
+                    last_len = rest_tokens.len();
                     rest = rest_tokens;
                     succeeded_at_least_once = true;
                     vec.push(item);
@@ -122,9 +132,14 @@ where
     move |tokens: &'a [W]| {
         let mut vec = Vec::new();
         let mut rest = tokens;
+        let mut last_len = rest.len();
         while rest.len() > 0 {
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
+                    if rest_tokens.len() == last_len {
+                        return Err(TokenParseError::from_error_kind(TokenParseErrorKind::InfiniteLoop))
+                    }
+                    last_len = rest_tokens.len();
                     rest = rest_tokens;
                     vec.push(item);
                     continue;
@@ -145,16 +160,21 @@ where
     move |tokens: &'a [W]| {
         let mut vec = Vec::new();
         let mut rest = tokens;
+        let mut last_len = rest.len();
         while rest.len() > 0 {
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
+                    if rest_tokens.len() == last_len {
+                        return Err(TokenParseError::from_error_kind(TokenParseErrorKind::InfiniteLoop))
+                    }
+                    last_len = rest_tokens.len();
                     rest = rest_tokens;
                     vec.push(item);
 
                     if rest_tokens.is_empty() {
                         return Ok((rest, vec));
                     }
-                    
+
                     continue;
                 }
                 Err(err) => return Err(err),
@@ -221,9 +241,14 @@ pub fn separated_list0<'a, T, O, OSep, W: 'a>(
     move |tokens: &'a [W]| {
         let mut items = Vec::new();
         let mut rest = tokens;
+        let mut last_len = rest.len();
         while !tokens.is_empty() {
             match item_parser(rest) {
                 Ok((rest_tokens, item)) => {
+                    if rest_tokens.len() == last_len {
+                        return Err(TokenParseError::from_error_kind(TokenParseErrorKind::InfiniteLoop));
+                    }
+                    last_len = rest_tokens.len();
                     rest = rest_tokens;
                     items.push(item);
                 }
@@ -251,9 +276,14 @@ pub fn separated_list1<'a, T, O, OSep, W: 'a>(
         let num_tokens = tokens.len();
         let mut items = Vec::new();
         let mut rest = tokens;
+        let mut last_len = rest.len();
         while !tokens.is_empty() {
             match item_parser(rest) {
                 Ok((rest_tokens, item)) => {
+                    if rest_tokens.len() == last_len {
+                        return Err(TokenParseError::from_error_kind(TokenParseErrorKind::InfiniteLoop));
+                    }
+                    last_len = rest_tokens.len();
                     rest = rest_tokens;
                     items.push(item);
                 }
@@ -321,4 +351,30 @@ pub fn fail<'a, T, W: 'a>(tokens: &'a [W]) -> TokenParseResult<'a, T, &W, W> {
         errors: vec![TokenParseErrorKind::Fail],
         tokens_consumed: 0,
     })
+}
+
+pub fn many0_count<'a, T, O, W: 'a>(
+    mut parser: impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W>,
+) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, usize, W> {
+    move |tokens: &'a [W]| {
+        let mut rest = tokens;
+        let mut count = 0;
+        loop {
+            let len = rest.len();
+            match parser(rest) {
+                Ok((i, _)) => {
+                    if i.len() == len {
+                        return Err(TokenParseError {
+                            errors: vec![TokenParseErrorKind::InfiniteLoop],
+                            tokens_consumed: 0,
+                        });
+                    }
+
+                    rest = i;
+                    count += 1;
+                }
+                Err(_) => return Ok((rest, count)),
+            }
+        }
+    }
 }

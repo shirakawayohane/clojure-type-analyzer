@@ -1,16 +1,17 @@
 pub mod ast;
 
 pub use ast::AST;
-use lexer::{tokenize, Token};
+use lexer::{Token};
 use location::{Located, Span};
 use token_combinator::{
-    alt, delimited, many0, many1, map, map_res, opt, preceded, tuple, TokenParseError,
+    alt, delimited, many0, many0_count, many1, map, map_res, opt, preceded, tuple, TokenParseError,
     TokenParseErrorKind, TokenParseResult, TokenParser,
 };
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
 type ParseResult<'a> = TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>>;
+type NotLocatedParseResult<'a> = TokenParseResult<'a, Token<'a>, AST<'a>, Located<Token<'a>>>;
 
 use lexer::token::parser::*;
 
@@ -208,6 +209,21 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
     ))(tokens)
 }
 
-pub fn parse_root(tokens: Tokens) -> ParseResult {
-    located(map(many1(parse_form), |top_forms| AST::Root(top_forms)))(tokens)
+pub fn parse_root(tokens: Tokens) -> NotLocatedParseResult {
+    let mut rest = tokens;
+    let mut forms = Vec::new();
+    while !rest.is_empty() {
+        let (rest_tokens, comment_out_count) = many0_count(sharp_underescore)(rest)?;
+        rest = rest_tokens;
+        for _ in 0..comment_out_count {
+            if !rest.is_empty() {
+                let (rest_tokens, _) = parse_form(rest)?;
+                rest = rest_tokens;
+            }
+        }
+        let (rest_tokens, form) = parse_form(rest)?;
+        rest = rest_tokens;
+        forms.push(form);
+    }
+    Ok((rest, AST::Root(forms)))
 }

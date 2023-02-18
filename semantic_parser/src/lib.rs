@@ -544,9 +544,9 @@ fn parse_source_impl<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResu
 }
 
 pub fn parse_source<'a>(
-    root_ast: &'a Located<AST<'a>>,
+    root_ast: &'a AST<'a>,
 ) -> Result<Source, TokenParseError<AST<'a>>> {
-    if let AST::Root(toplevel_forms) = &root_ast.value {
+    if let AST::Root(toplevel_forms) = &root_ast {
         match parse_source_impl(&toplevel_forms) {
             Ok((_, source)) => {
                 return Ok(source.value);
