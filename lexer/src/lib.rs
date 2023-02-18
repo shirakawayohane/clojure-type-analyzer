@@ -1,3 +1,4 @@
+#![feature(rustc_attrs)]
 pub mod token;
 
 pub use token::Token;

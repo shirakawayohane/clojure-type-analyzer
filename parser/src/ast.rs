@@ -98,24 +98,3 @@ impl AST<'_> {
         }
     }
 }
-
-pub fn root<'a, W>(
-    tokens: &'a [W],
-) -> token_combinator::TokenParseResult<'a, AST, &Vec<Located<AST<'a>>>, W>
-where
-    W: token_combinator::UnwrapToken<AST<'a>>,
-{
-    let wrapped_token = &tokens[0];
-    let token = wrapped_token.unwrap_token();
-    if let AST::Root(_1) = token {
-        Ok((&tokens[1..], (_1)))
-    } else {
-        Err(token_combinator::TokenParseError {
-            errors: vec![token_combinator::TokenParseErrorKind::Expects {
-                expects: "root",
-                found: token.clone(),
-            }],
-            tokens_consumed: 0,
-        })
-    }
-}

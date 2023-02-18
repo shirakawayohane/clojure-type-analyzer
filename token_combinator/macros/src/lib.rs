@@ -117,9 +117,9 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
         let ret = quote! {
             pub fn #parser_name<#token_life_parameter_with_comma W>(
                 tokens: & #token_life_parameter [W],
-            ) -> token_combinator::TokenParseResult<#token_life_parameter , #enum_name , #return_type_stream , W>
+            ) -> token_combinator::TokenParseResult<#token_life_parameter, W, #return_type_stream>
             where
-                W: token_combinator::UnwrapToken<#enum_name #token_life_parameter_with_angles>
+                W: Clone + token_combinator::UnwrapToken<#enum_name #token_life_parameter_with_angles>
             {
                 if tokens.is_empty() {
                     return Err(token_combinator::TokenParseError {
@@ -137,7 +137,7 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                     Err(token_combinator::TokenParseError {
                         errors: vec![token_combinator::TokenParseErrorKind::Expects {
                             expects: #lower_variant_name,
-                            found: token.clone()
+                            found: wrapped_token.clone()
                         }],
                         tokens_consumed: 0,
                     })

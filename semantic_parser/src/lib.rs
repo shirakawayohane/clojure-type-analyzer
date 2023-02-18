@@ -17,8 +17,8 @@ use token_combinator::{
     TokenParseErrorKind, TokenParseResult, TokenParser,
 };
 
-type ASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>;
-type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, O, Located<AST<'a>>>;
+type ASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, Located<O>>;
+type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, O>;
 
 macro_rules! specific_symbol {
     ($name: tt, $sym_name: expr, $expect: expr) => {
@@ -34,7 +34,7 @@ macro_rules! specific_symbol {
                             Err(TokenParseError {
                                 errors: vec![TokenParseErrorKind::Expects {
                                     expects: $expect,
-                                    found: forms[0].value.clone(),
+                                    found: forms[0].clone(),
                                 }],
                                 tokens_consumed: 0,
                             })
@@ -70,7 +70,7 @@ macro_rules! specific_keyword {
                             Err(TokenParseError {
                                 errors: vec![TokenParseErrorKind::Expects {
                                     expects: $expect,
-                                    found: forms[0].value.clone(),
+                                    found: forms[0].clone(),
                                 }],
                                 tokens_consumed: 0,
                             })
@@ -89,8 +89,8 @@ specific_keyword!(all, "all", ":all");
 specific_keyword!(import, "impot", ":import");
 
 fn located<'a, O>(
-    mut parser: impl TokenParser<'a, AST<'a>, O, Located<AST<'a>>>,
-) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>
+    mut parser: impl TokenParser<'a, Located<AST<'a>>, O>,
+) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, Located<AST<'a>>, Located<O>>
 {
     move |forms: &'a [Located<AST<'a>>]| {
         if forms.is_empty() {
@@ -265,7 +265,7 @@ fn parse_annotation<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Typ
         return Err(TokenParseError {
             errors: vec![TokenParseErrorKind::Expects {
                 expects: "-",
-                found: forms[0].value.clone(),
+                found: forms[0].clone(),
             }],
             tokens_consumed: 0,
         });
@@ -545,7 +545,7 @@ fn parse_source_impl<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResu
 
 pub fn parse_source<'a>(
     root_ast: &'a AST<'a>,
-) -> Result<Source, TokenParseError<AST<'a>>> {
+) -> Result<Source, TokenParseError<Located<AST<'a>>>> {
     if let AST::Root(toplevel_forms) = &root_ast {
         match parse_source_impl(&toplevel_forms) {
             Ok((_, source)) => {

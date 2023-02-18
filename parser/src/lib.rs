@@ -10,16 +10,16 @@ use token_combinator::{
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
-type ParseResult<'a> = TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>>;
-type NotLocatedParseResult<'a> = TokenParseResult<'a, Token<'a>, AST<'a>, Located<Token<'a>>>;
+type ParseResult<'a> = TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>;
+type NotLocatedParseResult<'a> = TokenParseResult<'a, Located<Token<'a>>, AST<'a>>;
 
 use lexer::token::parser::*;
 
 fn located<'a>(
-    mut parser: impl TokenParser<'a, Token<'a>, AST<'a>, Located<Token<'a>>>,
+    mut parser: impl TokenParser<'a, Located<Token<'a>>, AST<'a>>,
 ) -> impl FnMut(
     &'a [Located<Token<'a>>],
-) -> TokenParseResult<'a, Token<'a>, Located<AST<'a>>, Located<Token<'a>>> {
+) -> TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>> {
     move |tokens: &'a [Located<Token<'a>>]| {
         let from = tokens[0].range;
         let (rest, output) = parser.parse(tokens)?;
