@@ -16,6 +16,7 @@ pub enum Token<'a> {
     Hat,         // ^
     Sharp,       // #
     And,         // &
+    CharLiteral(char),
     StringLiteral(Span<'a>),
     IntegerLiteral(i64), // 10, 0xFF, 0b01, 0o70...
     FloatLiteral(f64), // 3.14...

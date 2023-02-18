@@ -85,6 +85,10 @@ fn parse_keyword(tokens: Tokens) -> ParseResult {
     }))(tokens)
 }
 
+fn parse_char_literal(tokens: Tokens) -> ParseResult {
+    located(map(char_literal, |c| AST::CharLiteral(*c)))(tokens)
+}
+
 fn parse_string_literal(tokens: Tokens) -> ParseResult {
     located(map(string_literal, |str| AST::StringLiteral(&str)))(tokens)
 }
@@ -167,6 +171,7 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_symbol,
         parse_and,
         parse_keyword,
+        parse_char_literal,
         parse_string_literal,
         parse_integer_literal,
         parse_float_literal,

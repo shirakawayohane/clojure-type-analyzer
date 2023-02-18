@@ -38,6 +38,7 @@ impl Keyword<'_> {
 pub enum AST<'a> {
     IntegerLiteral(i64),
     FloatLiteral(f64),
+    CharLiteral(char),
     StringLiteral(&'a str),
     RegexLiteral(&'a str),
     AnonymousFn(Vec<Located<AST<'a>>>),

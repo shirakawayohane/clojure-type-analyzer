@@ -6,11 +6,11 @@ use location::{Located, Location, Span};
 use nom::{
     branch::{alt, permutation},
     bytes::complete::tag,
-    bytes::complete::{take_till, take_till1},
+    bytes::complete::{take, take_till, take_till1},
     character::complete::{
         char, digit0, digit1, hex_digit1, line_ending, multispace1, oct_digit1, one_of,
     },
-    combinator::{eof, map, map_res, not, opt, recognize},
+    combinator::{eof, map, map_res, not, opt, recognize, success},
     multi::{many0, many1},
     sequence::{delimited, preceded, terminated, tuple},
     IResult, Parser,
@@ -80,6 +80,18 @@ fn lbrace(input: Span) -> TokenizeResult {
 }
 fn rbrace(input: Span) -> TokenizeResult {
     located(map(char('}'), |_| Token::RBrace))(input)
+}
+
+fn char_literal(input: Span) -> TokenizeResult {
+    fn anychar(s: Span) -> IResult<Span, char> {
+        map(take(1usize), |s: Span| {
+            s.chars().next().unwrap()
+        })(s)
+    }
+    located(map(
+        preceded(char('\\'), anychar),
+        |c| Token::CharLiteral(c)
+    ))(input)
 }
 
 fn string_literal(input: Span) -> TokenizeResult {
@@ -162,9 +174,7 @@ fn syntax_quote(input: Span) -> TokenizeResult {
 fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
         not(digit1),
-        take_till1(|x: char| {
-            !x.is_alphanumeric() && !"*+!-_?.<>%=$".contains(x)
-        }),
+        take_till1(|x: char| !x.is_alphanumeric() && !"*+!-_?.<>%=$".contains(x)),
     ))(input)
 }
 
@@ -207,6 +217,7 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             symbol,
             and,
             keyword,
+            char_literal,
             string_literal,
             integer,
             float,
