@@ -105,7 +105,7 @@ fn integer(i: Span) -> TokenizeResult {
     fn decimal_integer(input: Span) -> TokenizeResult {
         located(map(
             map_res(
-                recognize(tuple((one_of("123456789"), digit0))),
+                recognize(tuple((one_of("0123456789"), digit0))),
                 |n: Span| i64::from_str_radix(n.fragment(), 10),
             ),
             |i| Token::IntegerLiteral(i),
