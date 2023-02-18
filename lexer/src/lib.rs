@@ -155,7 +155,7 @@ fn syntax_quote(input: Span) -> TokenizeResult {
     located(map(char('`'), |_| Token::SyntaxQuote))(input)
 }
 
-const CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL: [char; 7] = ['*', '+', '!', '-', '_', '?', '.'];
+const CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL: [char; 9] = ['*', '+', '!', '-', '_', '?', '.', '<', '>'];
 
 fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
