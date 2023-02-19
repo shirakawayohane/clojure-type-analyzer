@@ -9,5 +9,5 @@ edition = "2021"
 thiserror = "1.0.38"
 lexer = {path = "../lexer"}
 location = { path = "../location" }
-token_combinator = {path = "../token_combinator/lib"}
+picktok = {path = "../picktok/lib"}
 paste = "1.0.11"

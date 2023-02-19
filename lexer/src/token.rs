@@ -1,7 +1,7 @@
 use std::vec;
 
 use location::{Span};
-use token_combinator::TokenParser;
+use picktok::TokenParser;
 
 #[derive(Debug, PartialEq, Clone, Copy, TokenParser)]
 pub enum Token<'a> {

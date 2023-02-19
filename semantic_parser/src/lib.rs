@@ -12,7 +12,7 @@ use parser::{
 };
 use paste::paste;
 use semantic_ast::*;
-use token_combinator::{
+use picktok::{
     alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, TokenParseError,
     TokenParseErrorKind, TokenParseResult, TokenParser, many0,
 };
@@ -428,6 +428,7 @@ pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
                 defn_symbol,
                 symbol,
                 opt(string_literal), // doc string
+                parse_metas,
                 opt(parse_annotation),
                 map_res(vector, |res| match res {
                     Ok((rest, args_vec)) => {
@@ -437,7 +438,7 @@ pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
                     Err(err) => Err(err),
                 }),
             )),
-            |(_, name_sym, _, , opt_return_type, args)| FunctionDecl {
+            |(_, name_sym, _, meta_data, opt_return_type, args)| FunctionDecl {
                 name: name_sym.name.to_string(),
                 return_type: opt_return_type,
                 arguments: args,

@@ -84,7 +84,7 @@ dependencies = [
  "location",
  "nom",
  "nom_locate",
- "token_combinator",
+ "picktok",
 ]
 
 [[package]]
@@ -92,7 +92,7 @@ name = "location"
 version = "0.1.0"
 dependencies = [
  "nom_locate",
- "token_combinator",
+ "picktok",
 ]
 
 [[package]]
@@ -135,8 +135,8 @@ dependencies = [
  "lexer",
  "location",
  "paste",
+ "picktok",
  "thiserror",
- "token_combinator",
 ]
 
 [[package]]
@@ -144,6 +144,25 @@ name = "paste"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
+
+[[package]]
+name = "picktok"
+version = "0.1.0"
+dependencies = [
+ "paste",
+ "picktok_macros",
+ "seq-macro",
+]
+
+[[package]]
+name = "picktok_macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "proc-macro2 1.0.51",
+ "quote 1.0.23",
+ "syn 1.0.107",
+]
 
 [[package]]
 name = "proc-macro2"
@@ -196,8 +215,8 @@ dependencies = [
  "location",
  "parser",
  "paste",
+ "picktok",
  "thiserror",
- "token_combinator",
 ]
 
 [[package]]
@@ -263,25 +282,6 @@ version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fb327af4685e4d03fa8cbcf1716380da910eeb2bb8be417e7f9fd3fb164f36f"
 dependencies = [
- "proc-macro2 1.0.51",
- "quote 1.0.23",
- "syn 1.0.107",
-]
-
-[[package]]
-name = "token_combinator"
-version = "0.1.0"
-dependencies = [
- "paste",
- "seq-macro",
- "token_combinator_macros",
-]
-
-[[package]]
-name = "token_combinator_macros"
-version = "0.1.0"
-dependencies = [
- "convert_case",
  "proc-macro2 1.0.51",
  "quote 1.0.23",
  "syn 1.0.107",

@@ -4,7 +4,7 @@ mod tuple;
 
 pub use alt::alt;
 pub use permutation::permutation;
-pub use token_combinator_macros::TokenParser;
+pub use picktok_macros::TokenParser;
 pub use tuple::tuple;
 
 // T stands for Token

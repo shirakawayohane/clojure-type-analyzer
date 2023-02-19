@@ -9,4 +9,4 @@ edition = "2021"
 nom = {version = "7.1.2"}
 nom_locate = "4.0.0"
 location = { path = "../location" }
-token_combinator = { path = "../token_combinator/lib" }
+picktok = { path = "../picktok/lib" }

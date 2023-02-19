@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use location::Located;
 use parser::{ast::{Keyword, Symbol}, AST};
-use token_combinator::TokenParseError;
+use picktok::TokenParseError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
@@ -173,7 +173,7 @@ impl Metadata<'_> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDecl<'a> {
     pub name: String,
-    pub meta_data: Vec<Metadata<'a>>,
+    pub meta_data: Vec<Located<Metadata<'a>>>,
     pub arguments: Vec<Located<Argument>>,
     pub return_type: Option<Located<Type>>,
 }

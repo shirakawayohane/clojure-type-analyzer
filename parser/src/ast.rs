@@ -1,5 +1,5 @@
 use location::Located;
-use token_combinator::TokenParser;
+use picktok::TokenParser;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol<'a> {

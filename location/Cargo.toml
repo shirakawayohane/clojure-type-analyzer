@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 nom_locate = "4.0.0"
-token_combinator = { path = "../token_combinator/lib"}
+picktok = { path = "../picktok/lib"}

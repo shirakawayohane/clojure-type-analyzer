@@ -3,7 +3,7 @@ pub mod ast;
 pub use ast::AST;
 use lexer::Token;
 use location::{Located};
-use token_combinator::{
+use picktok::{
     alt, delimited, many0, many0_count, map, map_res, preceded, tuple,
     TokenParseError, TokenParseErrorKind, TokenParseResult, TokenParser,
 };

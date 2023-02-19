@@ -4,8 +4,8 @@
     "lexer/Cargo.toml",
     "parser/Cargo.toml",
     "semantic_parser/Cargo.toml",
-    "token_combinator/lib/Cargo.toml",
-    "token_combinator/macros/Cargo.toml",
+    "picktok/lib/Cargo.toml",
+    "picktok/macros/Cargo.toml",
     "analyzer/Cargo.toml",
     "clojure-analyzer-cli/Cargo.toml"
   ]

@@ -1,5 +1,5 @@
 use nom_locate::LocatedSpan;
-use token_combinator::UnwrapToken;
+use picktok::UnwrapToken;
 
 pub type Span<'a> = LocatedSpan<&'a str>;
 

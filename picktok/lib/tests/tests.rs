@@ -1,5 +1,5 @@
-use token_combinator::tuple;
-use token_combinator_macros::TokenParser;
+use picktok::tuple;
+use picktok_macros::TokenParser;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TokenParser)]
 pub enum Token<'a> {
@@ -12,7 +12,7 @@ pub enum Token<'a> {
 }
 
 use parser::*;
-use token_combinator::*;
+use picktok::*;
 
 #[test]
 fn tuple_test() {

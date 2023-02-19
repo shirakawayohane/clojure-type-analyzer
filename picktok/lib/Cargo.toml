@@ -1,9 +1,9 @@
 [package]
-name = "token_combinator"
+name = "picktok"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 paste = "1.0.11"
 seq-macro = "0.3.2"
-token_combinator_macros = { path = "../macros" }
+picktok_macros = { path = "../macros" }
