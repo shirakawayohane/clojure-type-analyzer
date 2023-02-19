@@ -1,6 +1,4 @@
-#![feature(rustc_attrs)]
 pub mod token;
-
 pub use token::Token;
 
 use location::{Located, Location, Span};
@@ -13,7 +11,7 @@ use nom::{
     },
     combinator::{eof, map, map_res, not, opt, recognize},
     multi::{many0, many1},
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{preceded, terminated, tuple, delimited},
     IResult, Parser,
 };
 

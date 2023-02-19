@@ -1,11 +1,11 @@
 pub mod ast;
 
 pub use ast::AST;
-use lexer::{Token};
-use location::{Located, Span};
+use lexer::Token;
+use location::{Located};
 use token_combinator::{
-    alt, delimited, many0, many0_count, many1, map, map_res, opt, preceded, tuple, TokenParseError,
-    TokenParseErrorKind, TokenParseResult, TokenParser,
+    alt, delimited, many0, many0_count, map, map_res, preceded, tuple,
+    TokenParseError, TokenParseErrorKind, TokenParseResult, TokenParser,
 };
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
@@ -17,9 +17,8 @@ use lexer::token::parser::*;
 
 fn located<'a>(
     mut parser: impl TokenParser<'a, Located<Token<'a>>, AST<'a>>,
-) -> impl FnMut(
-    &'a [Located<Token<'a>>],
-) -> TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>> {
+) -> impl FnMut(&'a [Located<Token<'a>>]) -> TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>
+{
     move |tokens: &'a [Located<Token<'a>>]| {
         let from = tokens[0].range;
         let (rest, output) = parser.parse(tokens)?;
@@ -34,31 +33,26 @@ fn located<'a>(
     }
 }
 
+fn parse_metadata(tokens: Tokens) -> ParseResult {
+    located(map(preceded(hat, parse_form), |form| {
+        AST::Metadata(Box::new(form))
+    }))(tokens)
+}
+
 fn parse_symbol(tokens: Tokens) -> ParseResult {
-    located(map(
-        tuple((opt(many1(preceded(hat, parse_form))), symbol)),
-        |(metadata, symbol_str)| {
-            let splited = symbol_str.split('/').collect::<Vec<_>>();
-            if splited.len() == 1 {
-                let name = splited[0];
-                return AST::Symbol(ast::Symbol {
-                    ns: None,
-                    name,
-                    metadata,
-                });
-            } else if splited.len() == 2 {
-                let ns = splited[0];
-                let name = splited[1];
-                return AST::Symbol(ast::Symbol {
-                    name,
-                    ns: Some(ns),
-                    metadata,
-                });
-            } else {
-                unreachable!()
-            }
-        },
-    ))(tokens)
+    located(map(symbol, |symbol_str| {
+        let splited = symbol_str.split('/').collect::<Vec<_>>();
+        if splited.len() == 1 {
+            let name = splited[0];
+            return AST::Symbol(ast::Symbol { ns: None, name });
+        } else if splited.len() == 2 {
+            let ns = splited[0];
+            let name = splited[1];
+            return AST::Symbol(ast::Symbol { name, ns: Some(ns) });
+        } else {
+            unreachable!()
+        }
+    }))(tokens)
 }
 
 fn parse_unquoted_symbol(tokens: Tokens) -> ParseResult {
@@ -201,6 +195,7 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_set,
         parse_regex_literal,
         parse_anonymous_fn,
+        parse_metadata,
         parse_and,
         parse_quoted_form,
         parse_unquoted_symbol,

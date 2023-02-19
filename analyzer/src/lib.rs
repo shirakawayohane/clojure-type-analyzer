@@ -233,8 +233,8 @@ pub fn infer_expression_type<'a>(
             .clone(),
         Expression::SetLiteral(_) => todo!(),
         Expression::VectorLiteral(_) => todo!(),
-        Expression::MapLiteral(kvs) => ResolvedType::Map(
-            kvs.into_iter()
+        Expression::MapLiteral(map) => ResolvedType::Map(
+            map.kvs_exprs.iter()
                 .map(|(k, v)| {
                     let map_key = match &k.value {
                         Expression::IntLiteral(i) => MapKey::Integer(*i),

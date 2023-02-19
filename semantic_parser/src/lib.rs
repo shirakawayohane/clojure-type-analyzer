@@ -5,7 +5,7 @@ use anyhow::Result;
 use location::{Located, Span};
 use parser::{
     ast::{
-        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector},
+        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector, metadata},
         Keyword, Symbol,
     },
     AST,
@@ -14,7 +14,7 @@ use paste::paste;
 use semantic_ast::*;
 use token_combinator::{
     alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, TokenParseError,
-    TokenParseErrorKind, TokenParseResult, TokenParser,
+    TokenParseErrorKind, TokenParseResult, TokenParser, many0,
 };
 
 type ASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, Located<O>>;
@@ -370,7 +370,9 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                 Ok((rest, kvs)) => {
                     let (_, map_expr) = map(
                         many0_until_end(tuple((parse_expression, parse_expression))),
-                        |kvs_expr| Expression::MapLiteral(kvs_expr),
+                        |kvs_exprs| Expression::MapLiteral(MapLiteral {
+                            kvs_exprs
+                        }),
                     )(kvs)?;
                     Ok((rest, map_expr))
                 }
@@ -396,15 +398,23 @@ fn parse_expression_and_box<'a>(
     located(map(parse_expression, |expr| Box::new(expr.value)))(forms)
 }
 
+pub fn parse_metas<'a>(forms: &'a [Located<AST<'a>>]) -> NotLocatedASTParseResult<'a, Vec<Located<Metadata>>> {
+    many0(located(map_res(metadata, |meta| match meta {
+        Ok((rest, ast)) => Ok((rest, Metadata::try_from_ast(ast)?)),
+        Err(err) => Err(err),
+    })))(forms)
+}
+
 pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, FunctionDecl> {
     fn parse_argument<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Argument> {
         located(map(
             tuple((
+                parse_metas,
                 opt(parser::ast::parser::and),
                 parse_binding,
                 opt(parse_annotation),
             )),
-            |(opt_and, binding, ty_annotation)| Argument {
+            |(metas, opt_and, binding, ty_annotation)| Argument {
                 is_var_arg: opt_and.is_some(),
                 binding,
                 ty_annotation,
@@ -427,10 +437,11 @@ pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
                     Err(err) => Err(err),
                 }),
             )),
-            |(_, name_sym, _, opt_return_type, args)| FunctionDecl {
+            |(_, name_sym, _, , opt_return_type, args)| FunctionDecl {
                 name: name_sym.name.to_string(),
                 return_type: opt_return_type,
                 arguments: args,
+                meta_data
             },
         )),
     )(forms)

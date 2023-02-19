@@ -5,7 +5,10 @@ use token_combinator::TokenParser;
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,
     pub name: &'a str,
-    pub metadata: Option<Vec<Located<AST<'a>>>>,
+}
+
+pub struct Metadata<'a> {
+    pub data: Vec<Located<AST<'a>>>,
 }
 
 impl Symbol<'_> {
@@ -51,6 +54,7 @@ pub enum AST<'a> {
     Unquoted(Symbol<'a>),
     UnquotedSplicing(Symbol<'a>),
     Keyword(Keyword<'a>),
+    Metadata(Box<Located<AST<'a>>>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),
     Root(Vec<Located<AST<'a>>>),
