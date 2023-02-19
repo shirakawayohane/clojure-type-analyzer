@@ -13,12 +13,12 @@ use parser::{
 use paste::paste;
 use semantic_ast::*;
 use picktok::{
-    alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, TokenParseError,
-    TokenParseErrorKind, TokenParseResult, TokenParser, many0,
+    alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, ParseError,
+    ParseErrorKind, ParseResult, TokenParser, many0,
 };
 
-type ASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, Located<O>>;
-type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, O>;
+type ASTParseResult<'a, O> = ParseResult<'a, Located<AST<'a>>, Located<O>>;
+type NotLocatedASTParseResult<'a, O> = ParseResult<'a, Located<AST<'a>>, O>;
 
 macro_rules! specific_symbol {
     ($name: tt, $sym_name: expr, $expect: expr) => {
@@ -31,8 +31,8 @@ macro_rules! specific_symbol {
                         if sym.name == $sym_name {
                             Ok((rest, sym))
                         } else {
-                            Err(TokenParseError {
-                                errors: vec![TokenParseErrorKind::Expects {
+                            Err(ParseError {
+                                errors: vec![ParseErrorKind::Expects {
                                     expects: $expect,
                                     found: forms[0].clone(),
                                 }],
@@ -67,8 +67,8 @@ macro_rules! specific_keyword {
                         if keyword.name == $key_name {
                             Ok((rest, keyword))
                         } else {
-                            Err(TokenParseError {
-                                errors: vec![TokenParseErrorKind::Expects {
+                            Err(ParseError {
+                                errors: vec![ParseErrorKind::Expects {
                                     expects: $expect,
                                     found: forms[0].clone(),
                                 }],
@@ -90,12 +90,12 @@ specific_keyword!(import, "impot", ":import");
 
 fn located<'a, O>(
     mut parser: impl TokenParser<'a, Located<AST<'a>>, O>,
-) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, Located<AST<'a>>, Located<O>>
+) -> impl FnMut(&'a [Located<AST<'a>>]) -> ParseResult<'a, Located<AST<'a>>, Located<O>>
 {
     move |forms: &'a [Located<AST<'a>>]| {
         if forms.is_empty() {
-            return Err(TokenParseError {
-                errors: vec![TokenParseErrorKind::NotEnoughToken],
+            return Err(ParseError {
+                errors: vec![ParseErrorKind::NotEnoughToken],
                 tokens_consumed: 0,
             });
         }
@@ -126,8 +126,8 @@ fn parse_require<'a>(forms_in_ns_list: &'a [Located<AST<'a>>]) -> ASTParseResult
         forms_in_vec: &'a [Located<AST<'a>>],
     ) -> ASTParseResult<'a, NamespaceOnly> {
         if forms_in_vec.len() != 0 {
-            return Err(TokenParseError {
-                errors: vec![TokenParseErrorKind::Other(
+            return Err(ParseError {
+                errors: vec![ParseErrorKind::Other(
                     "Invalid require vector".to_owned(),
                 )],
                 tokens_consumed: 0,
@@ -262,8 +262,8 @@ fn parse_type<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Type> {
 fn parse_annotation<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Type> {
     let (rest, keyword) = keyword(forms)?;
     if keyword.name != "-" {
-        return Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::Expects {
+        return Err(ParseError {
+            errors: vec![ParseErrorKind::Expects {
                 expects: "-",
                 found: forms[0].clone(),
             }],
@@ -284,8 +284,8 @@ fn parse_binding<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Bindin
 
 fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Expression<'a>> {
     if forms.is_empty() {
-        return Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::NotEnoughToken],
+        return Err(ParseError {
+            errors: vec![ParseErrorKind::NotEnoughToken],
             tokens_consumed: 0,
         });
     }
@@ -557,7 +557,7 @@ fn parse_source_impl<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResu
 
 pub fn parse_source<'a>(
     root_ast: &'a AST<'a>,
-) -> Result<Source, TokenParseError<Located<AST<'a>>>> {
+) -> Result<Source, ParseError<Located<AST<'a>>>> {
     if let AST::Root(toplevel_forms) = &root_ast {
         match parse_source_impl(&toplevel_forms) {
             Ok((_, source)) => {

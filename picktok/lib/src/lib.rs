@@ -11,7 +11,7 @@ pub use tuple::tuple;
 // O stands for Output
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum TokenParseErrorKind<T> {
+pub enum ParseErrorKind<T> {
     Expects { expects: &'static str, found: T },
     NotEnoughToken,
     Fail,
@@ -21,46 +21,46 @@ pub enum TokenParseErrorKind<T> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct TokenParseError<T> {
-    pub errors: Vec<TokenParseErrorKind<T>>,
+pub struct ParseError<T> {
+    pub errors: Vec<ParseErrorKind<T>>,
     pub tokens_consumed: usize,
 }
 
-impl<T> TokenParseError<T> {
-    pub fn from_error_kind(kind: TokenParseErrorKind<T>) -> Self {
-        TokenParseError {
+impl<T> ParseError<T> {
+    pub fn from_error_kind(kind: ParseErrorKind<T>) -> Self {
+        ParseError {
             errors: vec![kind],
             tokens_consumed: 0,
         }
     }
     pub fn with_tokens_consumed(self, tokens_consumed: usize) -> Self {
-        TokenParseError {
+        ParseError {
             errors: self.errors,
             tokens_consumed,
         }
     }
-    pub fn with_error_appended(self, kind: TokenParseErrorKind<T>) -> Self {
+    pub fn with_error_appended(self, kind: ParseErrorKind<T>) -> Self {
         let mut errors = self.errors;
         errors.push(kind);
-        TokenParseError {
+        ParseError {
             errors,
             tokens_consumed: self.tokens_consumed,
         }
     }
 }
 
-pub type TokenParseResult<'a, T, O> = Result<(&'a [T], O), TokenParseError<T>>;
+pub type ParseResult<'a, T, O> = Result<(&'a [T], O), ParseError<T>>;
 
 pub trait TokenParser<'a, T, O> {
-    fn parse(&mut self, tokens: &'a [T]) -> Result<(&'a [T], O), TokenParseError<T>>;
+    fn parse(&mut self, tokens: &'a [T]) -> Result<(&'a [T], O), ParseError<T>>;
 }
 
 impl<'a, T, O, F> TokenParser<'a, T, O> for F
 where
     T: 'a,
-    F: FnMut(&'a [T]) -> Result<(&'a [T], O), TokenParseError<T>>,
+    F: FnMut(&'a [T]) -> Result<(&'a [T], O), ParseError<T>>,
 {
-    fn parse(&mut self, tokens: &'a [T]) -> Result<(&'a [T], O), TokenParseError<T>> {
+    fn parse(&mut self, tokens: &'a [T]) -> Result<(&'a [T], O), ParseError<T>> {
         self(tokens)
     }
 }
@@ -77,17 +77,17 @@ impl<T> UnwrapToken<T> for T {
 
 pub fn context<'a, T: 'a, O>(
     context: &'static str,
-    mut parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+    mut parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, O>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O> {
     move |tokens: &'a [T]| match parser(tokens) {
-        Err(err) => Err(err.with_error_appended(TokenParseErrorKind::Context(context))),
+        Err(err) => Err(err.with_error_appended(ParseErrorKind::Context(context))),
         ok => ok,
     }
 }
 
 pub fn many1<'a, T, O>(
     mut parser: impl TokenParser<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Vec<O>>
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Vec<O>>
 where
     T: 'a,
 {
@@ -100,8 +100,8 @@ where
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
                     if rest_tokens.len() == last_len {
-                        return Err(TokenParseError::from_error_kind(
-                            TokenParseErrorKind::InfiniteLoop,
+                        return Err(ParseError::from_error_kind(
+                            ParseErrorKind::InfiniteLoop,
                         ));
                     }
                     last_len = rest_tokens.len();
@@ -125,7 +125,7 @@ where
 
 pub fn many0<'a, T, O>(
     mut parser: impl TokenParser<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Vec<O>>
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Vec<O>>
 where
     T: 'a,
 {
@@ -137,8 +137,8 @@ where
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
                     if rest_tokens.len() == last_len {
-                        return Err(TokenParseError::from_error_kind(
-                            TokenParseErrorKind::InfiniteLoop,
+                        return Err(ParseError::from_error_kind(
+                            ParseErrorKind::InfiniteLoop,
                         ));
                     }
                     last_len = rest_tokens.len();
@@ -155,7 +155,7 @@ where
 
 pub fn many0_until_end<'a, T, O>(
     mut parser: impl TokenParser<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Vec<O>>
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Vec<O>>
 where
     T: 'a + std::fmt::Debug,
 {
@@ -167,8 +167,8 @@ where
             match parser.parse(rest) {
                 Ok((rest_tokens, item)) => {
                     if rest_tokens.len() == last_len {
-                        return Err(TokenParseError::from_error_kind(
-                            TokenParseErrorKind::InfiniteLoop,
+                        return Err(ParseError::from_error_kind(
+                            ParseErrorKind::InfiniteLoop,
                         ));
                     }
                     last_len = rest_tokens.len();
@@ -190,7 +190,7 @@ where
 
 pub fn opt<'a, T, O>(
     mut parser: impl TokenParser<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Option<O>> {
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Option<O>> {
     move |tokens: &'a [T]| match parser.parse(tokens) {
         Ok((rest, output)) => Ok((rest, Some(output))),
         Err(_) => Ok((tokens, None)),
@@ -198,10 +198,10 @@ pub fn opt<'a, T, O>(
 }
 
 pub fn delimited<'a, T: 'a, O1, O2, O3>(
-    mut l: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O1>,
-    mut main: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2>,
-    mut r: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O3>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2> {
+    mut l: impl FnMut(&'a [T]) -> ParseResult<'a, T, O1>,
+    mut main: impl FnMut(&'a [T]) -> ParseResult<'a, T, O2>,
+    mut r: impl FnMut(&'a [T]) -> ParseResult<'a, T, O3>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O2> {
     move |tokens: &'a [T]| {
         let (rest, _) = l(tokens)?;
         let (rest, result) = main(rest)?;
@@ -212,9 +212,9 @@ pub fn delimited<'a, T: 'a, O1, O2, O3>(
 }
 
 pub fn preceded<'a, O1, T: 'a, O2>(
-    mut first: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O1>,
-    mut second: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2> {
+    mut first: impl FnMut(&'a [T]) -> ParseResult<'a, T, O1>,
+    mut second: impl FnMut(&'a [T]) -> ParseResult<'a, T, O2>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O2> {
     move |tokens: &'a [T]| {
         let (rest, _) = first(tokens)?;
         let (rest, result) = second(rest)?;
@@ -224,9 +224,9 @@ pub fn preceded<'a, O1, T: 'a, O2>(
 }
 
 pub fn terminated<'a, T: 'a, O1, O2>(
-    mut first: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O1>,
-    mut second: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O1> {
+    mut first: impl FnMut(&'a [T]) -> ParseResult<'a, T, O1>,
+    mut second: impl FnMut(&'a [T]) -> ParseResult<'a, T, O2>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O1> {
     move |tokens: &'a [T]| {
         let (rest, result) = first(tokens)?;
         let (rest, _) = second(rest)?;
@@ -236,9 +236,9 @@ pub fn terminated<'a, T: 'a, O1, O2>(
 }
 
 pub fn separated_list0<'a, T: 'a, O, OSep>(
-    mut separator_parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, OSep>,
-    mut item_parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Vec<O>> {
+    mut separator_parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, OSep>,
+    mut item_parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, O>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Vec<O>> {
     move |tokens: &'a [T]| {
         let mut items = Vec::new();
         let mut rest = tokens;
@@ -247,8 +247,8 @@ pub fn separated_list0<'a, T: 'a, O, OSep>(
             match item_parser(rest) {
                 Ok((rest_tokens, item)) => {
                     if rest_tokens.len() == last_len {
-                        return Err(TokenParseError::from_error_kind(
-                            TokenParseErrorKind::InfiniteLoop,
+                        return Err(ParseError::from_error_kind(
+                            ParseErrorKind::InfiniteLoop,
                         ));
                     }
                     last_len = rest_tokens.len();
@@ -272,9 +272,9 @@ pub fn separated_list0<'a, T: 'a, O, OSep>(
 }
 
 pub fn separated_list1<'a, T: 'a, O, OSep>(
-    mut separator_parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, OSep>,
-    mut item_parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, Vec<O>> {
+    mut separator_parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, OSep>,
+    mut item_parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, O>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, Vec<O>> {
     move |tokens: &'a [T]| {
         let num_tokens = tokens.len();
         let mut items = Vec::new();
@@ -284,8 +284,8 @@ pub fn separated_list1<'a, T: 'a, O, OSep>(
             match item_parser(rest) {
                 Ok((rest_tokens, item)) => {
                     if rest_tokens.len() == last_len {
-                        return Err(TokenParseError::from_error_kind(
-                            TokenParseErrorKind::InfiniteLoop,
+                        return Err(ParseError::from_error_kind(
+                            ParseErrorKind::InfiniteLoop,
                         ));
                     }
                     last_len = rest_tokens.len();
@@ -311,17 +311,17 @@ pub fn separated_list1<'a, T: 'a, O, OSep>(
             }
         }
         // If tokens is empty, returns error.
-        return Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::NotEnoughToken],
+        return Err(ParseError {
+            errors: vec![ParseErrorKind::NotEnoughToken],
             tokens_consumed: 0,
         });
     }
 }
 
 pub fn map<'a, T: 'a, OParser, O>(
-    mut parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, OParser>,
+    mut parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, OParser>,
     mut mapper: impl FnMut(OParser) -> O,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O> {
     move |tokens: &'a [T]| {
         let (rest, result) = parser(tokens)?;
         Ok((rest, mapper(result)))
@@ -329,38 +329,38 @@ pub fn map<'a, T: 'a, OParser, O>(
 }
 
 pub fn map_res<'a, T: 'a, O1, O2>(
-    mut parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O1>,
-    mut mapper: impl FnMut(TokenParseResult<'a, T, O1>) -> TokenParseResult<'a, T, O2>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O2> {
+    mut parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, O1>,
+    mut mapper: impl FnMut(ParseResult<'a, T, O1>) -> ParseResult<'a, T, O2>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O2> {
     move |tokens: &'a [T]| mapper(parser(tokens))
 }
 
-pub fn success<'a, T: 'a>(tokens: &'a [T]) -> TokenParseResult<'a, T, &T> {
+pub fn success<'a, T: 'a>(tokens: &'a [T]) -> ParseResult<'a, T, &T> {
     if tokens.is_empty() {
-        return Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::NotEnoughToken],
+        return Err(ParseError {
+            errors: vec![ParseErrorKind::NotEnoughToken],
             tokens_consumed: 0,
         });
     }
     Ok((&tokens[1..], &tokens[0]))
 }
 
-pub fn fail<'a, T: 'a>(tokens: &'a [T]) -> TokenParseResult<'a, &T, T> {
+pub fn fail<'a, T: 'a>(tokens: &'a [T]) -> ParseResult<'a, &T, T> {
     if tokens.is_empty() {
-        return Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::NotEnoughToken],
+        return Err(ParseError {
+            errors: vec![ParseErrorKind::NotEnoughToken],
             tokens_consumed: 0,
         });
     }
-    Err(TokenParseError {
-        errors: vec![TokenParseErrorKind::Fail],
+    Err(ParseError {
+        errors: vec![ParseErrorKind::Fail],
         tokens_consumed: 0,
     })
 }
 
 pub fn many0_count<'a, T: 'a, O>(
-    mut parser: impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O>,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, usize> {
+    mut parser: impl FnMut(&'a [T]) -> ParseResult<'a, T, O>,
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, usize> {
     move |tokens: &'a [T]| {
         let mut rest = tokens;
         let mut count = 0;
@@ -369,8 +369,8 @@ pub fn many0_count<'a, T: 'a, O>(
             match parser(rest) {
                 Ok((i, _)) => {
                     if i.len() == len {
-                        return Err(TokenParseError {
-                            errors: vec![TokenParseErrorKind::InfiniteLoop],
+                        return Err(ParseError {
+                            errors: vec![ParseErrorKind::InfiniteLoop],
                             tokens_consumed: 0,
                         });
                     }

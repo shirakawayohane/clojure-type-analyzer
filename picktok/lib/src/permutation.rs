@@ -3,12 +3,12 @@ use seq_macro::seq;
 
 pub trait Permutation<'a, T, O> {
     /// Tries to apply all parsers in the permutation in various orders until all of them succeed
-    fn permutation(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, O>;
+    fn permutation(&mut self, tokens: &'a [T]) -> ParseResult<'a, T, O>;
 }
 
 pub fn permutation<'a, T: Clone, O, List: Permutation<'a, T, O>>(
     mut l: List,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O> {
     move |tokens: &'a [T]| l.permutation(tokens)
 }
 
@@ -21,11 +21,11 @@ macro_rules! alt_trait_impl {
             P~N: TokenParser<'a, T, O~N>,
           )*
         {
-          fn permutation(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, (#(O~N,)*)> {
+          fn permutation(&mut self, tokens: &'a [T]) -> ParseResult<'a, T, (#(O~N,)*)> {
             let _num_tokens = tokens.len();
             let mut _rest = tokens;
             #(let mut _succeeded_~N = false;)*
-            #(let mut _error_of_parser~N: Option<TokenParseError<T>> = None;)*
+            #(let mut _error_of_parser~N: Option<ParseError<T>> = None;)*
             #(let mut _result_of_parser~N: Option<O~N> = None;)*
             for _ in 0..$n {
                 #(

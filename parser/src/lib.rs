@@ -5,19 +5,19 @@ use lexer::Token;
 use location::{Located};
 use picktok::{
     alt, delimited, many0, many0_count, map, map_res, preceded, tuple,
-    TokenParseError, TokenParseErrorKind, TokenParseResult, TokenParser,
+    ParseError, ParseErrorKind, TokenParser,
 };
 
 type Tokens<'a> = &'a [Located<Token<'a>>];
 
-type ParseResult<'a> = TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>;
-type NotLocatedParseResult<'a> = TokenParseResult<'a, Located<Token<'a>>, AST<'a>>;
+type ParseResult<'a> = picktok::ParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>;
+type NotLocatedParseResult<'a> = picktok::ParseResult<'a, Located<Token<'a>>, AST<'a>>;
 
 use lexer::token::parser::*;
 
 fn located<'a>(
     mut parser: impl TokenParser<'a, Located<Token<'a>>, AST<'a>>,
-) -> impl FnMut(&'a [Located<Token<'a>>]) -> TokenParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>
+) -> impl FnMut(&'a [Located<Token<'a>>]) -> picktok::ParseResult<'a, Located<Token<'a>>, Located<AST<'a>>>
 {
     move |tokens: &'a [Located<Token<'a>>]| {
         let from = tokens[0].range;
@@ -146,8 +146,8 @@ fn parse_map(tokens: Tokens) -> ParseResult {
         |res| match res {
             Ok((rest, kvs)) => {
                 if kvs.len() % 2 != 0 {
-                    return Err(TokenParseError {
-                        errors: vec![TokenParseErrorKind::Other(
+                    return Err(ParseError {
+                        errors: vec![ParseErrorKind::Other(
                             "map must have even number of forms".to_owned(),
                         )],
                         tokens_consumed: kvs.len(),

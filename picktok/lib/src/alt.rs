@@ -3,12 +3,12 @@ use seq_macro::seq;
 use crate::*;
 
 pub trait Alt<'a, T, O> {
-    fn alt(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, O>;
+    fn alt(&mut self, tokens: &'a [T]) -> ParseResult<'a, T, O>;
 }
 
 pub fn alt<'a, T, O, List: Alt<'a, T, O>>(
     mut l: List,
-) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+) -> impl FnMut(&'a [T]) -> ParseResult<'a, T, O> {
     move |tokens: &'a [T]| l.alt(tokens)
 }
 
@@ -21,9 +21,9 @@ macro_rules! alt_trait_impl {
             P~N: TokenParser<'a, T, O>,
           )*
         {
-          fn alt(&mut self, _tokens: &'a [T]) -> TokenParseResult<'a, T, O> {
+          fn alt(&mut self, _tokens: &'a [T]) -> ParseResult<'a, T, O> {
             let mut _max_consumed_tokens_len = 0;
-            let mut _max_token_consumed_error: Option<TokenParseError<T>> = None;
+            let mut _max_token_consumed_error: Option<ParseError<T>> = None;
             #(
               match self.N.parse(_tokens) {
                 Err(err) => {

@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use location::Located;
 use parser::{ast::{Keyword, Symbol}, AST};
-use picktok::TokenParseError;
+use picktok::ParseError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
@@ -159,7 +159,7 @@ pub enum Metadata<'a> {
 }
 
 impl Metadata<'_> {
-    pub fn try_from_ast<'a>(expr: &AST<'a>) -> Result<Metadata<'a>, TokenParseError<Located<AST<'a>>>> {
+    pub fn try_from_ast<'a>(expr: &AST<'a>) -> Result<Metadata<'a>, ParseError<Located<AST<'a>>>> {
         Ok(match expr {
             AST::StringLiteral(s) => Metadata::String(s.to_string()),
             AST::Keyword(k) => Metadata::Keyword(k.clone()),

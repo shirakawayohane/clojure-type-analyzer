@@ -117,14 +117,14 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
         let ret = quote! {
             pub fn #parser_name<#token_life_parameter_with_comma W>(
                 tokens: & #token_life_parameter [W],
-            ) -> picktok::TokenParseResult<#token_life_parameter, W, #return_type_stream>
+            ) -> picktok::ParseResult<#token_life_parameter, W, #return_type_stream>
             where
                 W: Clone + picktok::UnwrapToken<#enum_name #token_life_parameter_with_angles>
             {
                 if tokens.is_empty() {
-                    return Err(picktok::TokenParseError {
+                    return Err(picktok::ParseError {
                         errors: vec![
-                            picktok::TokenParseErrorKind::NotEnoughToken
+                            picktok::ParseErrorKind::NotEnoughToken
                         ],
                         tokens_consumed: 0
                     })
@@ -134,8 +134,8 @@ pub fn derive_parse_token(input: TokenStream) -> TokenStream {
                 if let #enum_name::#variant_name #pattern_match_stream = token {
                     Ok((&tokens[1..], #tuple_value_stream))
                 } else {
-                    Err(picktok::TokenParseError {
-                        errors: vec![picktok::TokenParseErrorKind::Expects {
+                    Err(picktok::ParseError {
+                        errors: vec![picktok::ParseErrorKind::Expects {
                             expects: #lower_variant_name,
                             found: wrapped_token.clone()
                         }],

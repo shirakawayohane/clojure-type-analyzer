@@ -54,10 +54,10 @@ fn alt_test() {
             Token::Ident("fn"),
             Token::Ident("add")
         ]),
-        Err(TokenParseError {
+        Err(ParseError {
             tokens_consumed: 1,
             // returns most token-consumed result
-            errors: vec![TokenParseErrorKind::Expects {
+            errors: vec![ParseErrorKind::Expects {
                 expects: "string",
                 found: Token::Ident("add")
             }]
@@ -69,10 +69,10 @@ fn alt_test() {
             Token::Ident("fn"),
             Token::Ident("add")
         ]),
-        Err(TokenParseError {
+        Err(ParseError {
             tokens_consumed: 1,
             // returns most token-consumed result
-            errors: vec![TokenParseErrorKind::Expects {
+            errors: vec![ParseErrorKind::Expects {
                 expects: "string",
                 found: Token::Ident("add")
             }]
@@ -187,8 +187,8 @@ fn separated_list1_test() {
     let tokens = &[Token::LParen];
     assert_eq!(
         separated_list1(pipe, ident)(tokens),
-        Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::Expects {
+        Err(ParseError {
+            errors: vec![ParseErrorKind::Expects {
                 expects: "ident",
                 found: Token::LParen
             }],
@@ -226,8 +226,8 @@ fn map_res_test() {
             if *ident_str == "if" {
                 Ok((rest, ident_str))
             } else {
-                Err(TokenParseError {
-                    errors: vec![TokenParseErrorKind::Expects {
+                Err(ParseError {
+                    errors: vec![ParseErrorKind::Expects {
                         expects: "if",
                         found: Token::Ident(ident_str),
                     }],
@@ -240,8 +240,8 @@ fn map_res_test() {
 
     assert_eq!(
         parser(&[Token::Ident("myon")]),
-        Err(TokenParseError {
-            errors: vec![TokenParseErrorKind::Expects {
+        Err(ParseError {
+            errors: vec![ParseErrorKind::Expects {
                 expects: "if",
                 found: Token::Ident("myon"),
             }],

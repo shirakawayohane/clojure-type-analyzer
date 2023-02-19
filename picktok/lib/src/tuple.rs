@@ -3,12 +3,12 @@ use seq_macro::seq;
 
 pub trait Tuple<'a, W, O> {
     /// Tries to apply all parsers in the tuple in various orders until all of them succeed
-    fn tuple(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, W, O>;
+    fn tuple(&mut self, tokens: &'a [W]) -> ParseResult<'a, W, O>;
 }
 
 pub fn tuple<'a, W: Clone, O, List: Tuple<'a, W, O>>(
     mut l: List,
-) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, W, O> {
+) -> impl FnMut(&'a [W]) -> ParseResult<'a, W, O> {
     move |tokens: &'a [W]| l.tuple(tokens)
 }
 
@@ -22,7 +22,7 @@ macro_rules! alt_trait_impl {
             P~N: TokenParser<'a, W, O~N>,
           )*
         {
-          fn tuple(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, W, (#(O~N,)*)> {
+          fn tuple(&mut self, tokens: &'a [W]) -> ParseResult<'a, W, (#(O~N,)*)> {
             let _num_tokens = tokens.len();
             #(
                 let (tokens, result~N) = match self.N.parse(tokens) {
