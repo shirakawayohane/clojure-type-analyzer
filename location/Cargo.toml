@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 nom_locate = "4.0.0"
-picktok = { path = "../picktok/lib"}
+picktok = { git = "https://github.com/WiZLite/picktok", branch = "main" }

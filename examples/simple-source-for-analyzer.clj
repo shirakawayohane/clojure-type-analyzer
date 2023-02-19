@@ -16,8 +16,8 @@
 
 (s/defn add :- s/Str
   [a :- s/Int
-   b :- s/Int]
-  (+ a b))
+   b :- s/Str]
+  (+ a b)) ;; error
 
 (defn main []
   (s/let [a :- s/Str 1] ;; error

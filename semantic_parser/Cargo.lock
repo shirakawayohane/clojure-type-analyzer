@@ -94,15 +94,17 @@ checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
 [[package]]
 name = "picktok"
 version = "0.1.0"
+source = "git+https://github.com/wizlite/picktok?branch=main#bbd7a16d9593a934ec31d6942e9376bb277eb100"
 dependencies = [
  "paste",
- "picktok_macros",
+ "picktok_proc_macros",
  "seq-macro",
 ]
 
 [[package]]
-name = "picktok_macros"
+name = "picktok_proc_macros"
 version = "0.1.0"
+source = "git+https://github.com/wizlite/picktok?branch=main#bbd7a16d9593a934ec31d6942e9376bb277eb100"
 dependencies = [
  "convert_case",
  "proc-macro2",

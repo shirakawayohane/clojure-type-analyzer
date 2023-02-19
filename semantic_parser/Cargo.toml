@@ -9,7 +9,7 @@ edition = "2021"
 thiserror = "1.0.38"
 parser = {path = "../parser"}
 location = { path = "../location" }
-picktok = { path = "../picktok/lib" }
+picktok = { git = "https://github.com/wizlite/picktok", branch = "main" }
 anyhow = "1.0.69"
 paste = "1.0.11"
 lexer = { path = "../lexer" }
