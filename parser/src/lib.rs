@@ -55,6 +55,16 @@ fn parse_symbol(tokens: Tokens) -> ParseResult {
     }))(tokens)
 }
 
+fn parse_atom_deref(tokens: Tokens) -> ParseResult {
+    located(map(preceded(at, parse_symbol), |sym_ast| {
+        if let AST::Symbol(sym) = sym_ast.value {
+            AST::AtomDeref(sym)
+        } else {
+            unreachable!()
+        }
+    }))(tokens)
+}
+
 fn parse_unquoted_symbol(tokens: Tokens) -> ParseResult {
     located(map(preceded(tilde, parse_symbol), |sym_ast| {
         if let AST::Symbol(sym) = sym_ast.value {
@@ -197,6 +207,7 @@ pub fn parse_form(tokens: Tokens) -> ParseResult {
         parse_anonymous_fn,
         parse_metadata,
         parse_and,
+        parse_atom_deref,
         parse_quoted_form,
         parse_unquoted_symbol,
         parse_unquoted_splicing_symbol,

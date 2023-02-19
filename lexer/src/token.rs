@@ -16,6 +16,7 @@ pub enum Token<'a> {
     Hat,              // ^
     Sharp,            // #
     And,              // &
+    At,               // @
     Tilde,            // ~
     TildeAt,          // ~@
     SharpUnderescore, // #_

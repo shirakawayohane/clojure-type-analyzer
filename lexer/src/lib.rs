@@ -171,6 +171,10 @@ fn syntax_quote(input: Span) -> TokenizeResult {
     located(map(char('`'), |_| Token::SyntaxQuote))(input)
 }
 
+fn at(input: Span) -> TokenizeResult {
+    located(map(terminated(char('@'), space1), |_| Token::And))(input)
+}
+
 fn tilde_at(input: Span) -> TokenizeResult {
     located(map(tag("~@"), |_| Token::TildeAt))(input)
 }
@@ -182,7 +186,7 @@ fn tilde(input: Span) -> TokenizeResult {
 fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
         not(digit1),
-        take_till1(|x: char| !x.is_alphanumeric() && !"*+!-_?.<>%=$".contains(x)),
+        take_till1(|x: char| !x.is_alphanumeric() && !"*+!-_?.<>%=$'&@".contains(x)),
     ))(input)
 }
 
@@ -223,6 +227,7 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             hat,
             sharp_underscore,
             sharp,
+            at,
             tilde_at,
             tilde,
             and,

@@ -49,6 +49,7 @@ pub enum AST<'a> {
     Vector(Vec<Located<AST<'a>>>),
     Set(Vec<Located<AST<'a>>>),
     Map(Vec<Located<AST<'a>>>),
+    AtomDeref(Symbol<'a>),
     Symbol(Symbol<'a>),
     And,
     Unquoted(Symbol<'a>),
