@@ -1,28 +1,27 @@
-use seq_macro::seq;
 use crate::*;
+use seq_macro::seq;
 
-pub trait Permutation<'a, T, O, W> {
+pub trait Permutation<'a, T, O> {
     /// Tries to apply all parsers in the permutation in various orders until all of them succeed
-    fn permutation(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, O, W>;
+    fn permutation(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, O>;
 }
 
-pub fn permutation<'a, T: Clone, O, W: UnwrapToken<T>, List: Permutation<'a, T, O, W>>(
+pub fn permutation<'a, T: Clone, O, List: Permutation<'a, T, O>>(
     mut l: List,
-) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
-    move |tokens: &'a [W]| l.permutation(tokens)
+) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+    move |tokens: &'a [T]| l.permutation(tokens)
 }
 
 macro_rules! alt_trait_impl {
     ($n:expr) => {
       seq!(N in 0..$n {
-        impl<'a, T, #(O~N,)* #(P~N,)* W> Permutation<'a, T, (#(O~N,)*), W> for (#(P~N,)*)
+        impl<'a, T, #(O~N,)* #(P~N,)*> Permutation<'a,T, (#(O~N,)*)> for (#(P~N,)*)
           where
-          W: 'a + UnwrapToken<T>,
           #(
-            P~N: TokenParser<'a, T, O~N, W>,
+            P~N: TokenParser<'a, T, O~N>,
           )*
         {
-          fn permutation(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, (#(O~N,)*), W> {
+          fn permutation(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, (#(O~N,)*)> {
             let _num_tokens = tokens.len();
             let mut _rest = tokens;
             #(let mut _succeeded_~N = false;)*

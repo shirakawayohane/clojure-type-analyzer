@@ -2,27 +2,26 @@ use seq_macro::seq;
 
 use crate::*;
 
-pub trait Alt<'a, T, O, W> {
-    fn alt(&mut self, tokens: &'a [W]) -> TokenParseResult<'a, T, O, W>;
+pub trait Alt<'a, T, O> {
+    fn alt(&mut self, tokens: &'a [T]) -> TokenParseResult<'a, T, O>;
 }
 
-pub fn alt<'a, T: Clone, O, W: UnwrapToken<T>, List: Alt<'a, T, O, W>>(
+pub fn alt<'a, T, O, List: Alt<'a, T, O>>(
     mut l: List,
-) -> impl FnMut(&'a [W]) -> TokenParseResult<'a, T, O, W> {
-    move |tokens: &'a [W]| l.alt(tokens)
+) -> impl FnMut(&'a [T]) -> TokenParseResult<'a, T, O> {
+    move |tokens: &'a [T]| l.alt(tokens)
 }
 
 macro_rules! alt_trait_impl {
     ($n:expr) => {
       seq!(N in 0..$n {
-        impl<'a, T, O, #(P~N,)* W> Alt<'a, T, O, W> for (#(P~N,)*)
-          where
-          W: UnwrapToken<T>,
+        impl<'a, O, #(P~N,)* T> Alt<'a, T, O> for (#(P~N,)*)
+        where
           #(
-            P~N: TokenParser<'a, T, O, W>,
+            P~N: TokenParser<'a, T, O>,
           )*
         {
-          fn alt(&mut self, _tokens: &'a [W]) -> TokenParseResult<'a, T, O, W> {
+          fn alt(&mut self, _tokens: &'a [T]) -> TokenParseResult<'a, T, O> {
             let mut _max_consumed_tokens_len = 0;
             let mut _max_token_consumed_error: Option<TokenParseError<T>> = None;
             #(

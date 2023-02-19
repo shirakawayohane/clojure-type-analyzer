@@ -1,18 +1,17 @@
 pub mod token;
-
 pub use token::Token;
 
 use location::{Located, Location, Span};
 use nom::{
     branch::{alt, permutation},
     bytes::complete::tag,
-    bytes::complete::{take_till, take_till1},
+    bytes::complete::{take, take_till, take_till1},
     character::complete::{
-        char, digit0, digit1, hex_digit1, line_ending, multispace1, oct_digit1, one_of,
+        char, digit0, digit1, hex_digit1, line_ending, multispace1, oct_digit1, one_of, space1,
     },
     combinator::{eof, map, map_res, not, opt, recognize},
     multi::{many0, many1},
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{preceded, terminated, tuple, delimited},
     IResult, Parser,
 };
 
@@ -82,6 +81,15 @@ fn rbrace(input: Span) -> TokenizeResult {
     located(map(char('}'), |_| Token::RBrace))(input)
 }
 
+fn char_literal(input: Span) -> TokenizeResult {
+    fn anychar(s: Span) -> IResult<Span, char> {
+        map(take(1usize), |s: Span| s.chars().next().unwrap())(s)
+    }
+    located(map(preceded(char('\\'), anychar), |c| {
+        Token::CharLiteral(c)
+    }))(input)
+}
+
 fn string_literal(input: Span) -> TokenizeResult {
     located(map(
         delimited(char('"'), take_till(|c| c == '"'), char('"')),
@@ -93,7 +101,7 @@ fn integer(i: Span) -> TokenizeResult {
     fn decimal_integer(input: Span) -> TokenizeResult {
         located(map(
             map_res(
-                recognize(tuple((one_of("123456789"), digit0))),
+                recognize(tuple((one_of("0123456789"), digit0))),
                 |n: Span| i64::from_str_radix(n.fragment(), 10),
             ),
             |i| Token::IntegerLiteral(i),
@@ -143,8 +151,16 @@ fn hat(input: Span) -> TokenizeResult {
     located(map(char('^'), |_| Token::Hat))(input)
 }
 
+fn sharp_underscore(input: Span) -> TokenizeResult {
+    located(map(tag("#_"), |_| Token::SharpUnderescore))(input)
+}
+
 fn sharp(input: Span) -> TokenizeResult {
     located(map(char('#'), |_| Token::Sharp))(input)
+}
+
+fn and(input: Span) -> TokenizeResult {
+    located(map(terminated(char('&'), space1), |_| Token::And))(input)
 }
 
 fn quote(input: Span) -> TokenizeResult {
@@ -155,14 +171,18 @@ fn syntax_quote(input: Span) -> TokenizeResult {
     located(map(char('`'), |_| Token::SyntaxQuote))(input)
 }
 
-const CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL: [char; 7] = ['*', '+', '!', '-', '_', '?', '.'];
+fn tilde_at(input: Span) -> TokenizeResult {
+    located(map(tag("~@"), |_| Token::TildeAt))(input)
+}
+
+fn tilde(input: Span) -> TokenizeResult {
+    located(map(char('~'), |_| Token::Tilde))(input)
+}
 
 fn name(input: Span) -> IResult<Span, Span> {
     recognize(preceded(
         not(digit1),
-        take_till1(|x: char| {
-            !x.is_alphanumeric() && !CHARS_ALLOWED_IN_KEYWORD_AND_SYMBOL.contains(&x)
-        }),
+        take_till1(|x: char| !x.is_alphanumeric() && !"*+!-_?.<>%=$".contains(x)),
     ))(input)
 }
 
@@ -201,9 +221,14 @@ pub fn tokenize<'a>(input: Span<'a>) -> IResult<Span, Vec<Located<Token<'a>>>> {
             quote,
             syntax_quote,
             hat,
+            sharp_underscore,
             sharp,
+            tilde_at,
+            tilde,
+            and,
             symbol,
             keyword,
+            char_literal,
             string_literal,
             integer,
             float,

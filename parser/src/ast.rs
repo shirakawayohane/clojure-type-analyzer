@@ -5,7 +5,10 @@ use token_combinator::TokenParser;
 pub struct Symbol<'a> {
     pub ns: Option<&'a str>,
     pub name: &'a str,
-    pub metadata: Option<Vec<Located<AST<'a>>>>,
+}
+
+pub struct Metadata<'a> {
+    pub data: Vec<Located<AST<'a>>>,
 }
 
 impl Symbol<'_> {
@@ -38,14 +41,20 @@ impl Keyword<'_> {
 pub enum AST<'a> {
     IntegerLiteral(i64),
     FloatLiteral(f64),
+    CharLiteral(char),
     StringLiteral(&'a str),
     RegexLiteral(&'a str),
+    AnonymousFn(Vec<Located<AST<'a>>>),
     List(Vec<Located<AST<'a>>>),
     Vector(Vec<Located<AST<'a>>>),
     Set(Vec<Located<AST<'a>>>),
     Map(Vec<Located<AST<'a>>>),
     Symbol(Symbol<'a>),
+    And,
+    Unquoted(Symbol<'a>),
+    UnquotedSplicing(Symbol<'a>),
     Keyword(Keyword<'a>),
+    Metadata(Box<Located<AST<'a>>>),
     Quoted(Box<Located<AST<'a>>>),
     SyntaxQuoted(Box<Located<AST<'a>>>),
     Root(Vec<Located<AST<'a>>>),
@@ -91,26 +100,5 @@ impl AST<'_> {
         } else {
             None
         }
-    }
-}
-
-pub fn root<'a, W>(
-    tokens: &'a [W],
-) -> token_combinator::TokenParseResult<'a, AST, &Vec<Located<AST<'a>>>, W>
-where
-    W: token_combinator::UnwrapToken<AST<'a>>,
-{
-    let wrapped_token = &tokens[0];
-    let token = wrapped_token.unwrap_token();
-    if let AST::Root(_1) = token {
-        Ok((&tokens[1..], (_1)))
-    } else {
-        Err(token_combinator::TokenParseError {
-            errors: vec![token_combinator::TokenParseErrorKind::Expects {
-                expects: "root",
-                found: token.clone(),
-            }],
-            tokens_consumed: 0,
-        })
     }
 }

@@ -1,7 +1,8 @@
 use std::fmt::{Display, Write};
 
 use location::Located;
-use parser::ast::{Keyword, Symbol};
+use parser::{ast::{Keyword, Symbol}, AST};
+use token_combinator::TokenParseError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Binding {
@@ -57,6 +58,11 @@ pub struct LetExpression<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct MapLiteral<'a> {
+    pub kvs_exprs: Vec<(Located<Expression<'a>>, Located<Expression<'a>>)>
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'a> {
     IntLiteral(i64),
     FloatLiteral(f64),
@@ -66,12 +72,13 @@ pub enum Expression<'a> {
     SymbolRef(&'a Symbol<'a>),
     SetLiteral(Vec<Located<Expression<'a>>>),
     VectorLiteral(Vec<Located<Expression<'a>>>),
-    MapLiteral(Vec<(Located<Expression<'a>>, Located<Expression<'a>>)>),
+    MapLiteral(MapLiteral<'a>),
     Call(CallExpression<'a>),
     When(WhenExpression<'a>),
     If(IfExpression<'a>),
     Cond(CondExpression<'a>),
     Let(LetExpression<'a>),
+    AnonymousFn(Vec<Located<Expression<'a>>>),
     Unknown,
 }
 
@@ -137,9 +144,37 @@ impl Display for Type {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FunctionDecl {
+pub struct Argument {
+    pub binding: Located<Binding>,
+    pub ty_annotation: Option<Located<Type>>,
+    pub is_var_arg: bool
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Metadata<'a> {
+    Keyword(Keyword<'a>),
+    Symbol(Symbol<'a>),
+    String(String),
+    Map(Vec<Located<AST<'a>>>),
+}
+
+impl Metadata<'_> {
+    pub fn try_from_ast<'a>(expr: &AST<'a>) -> Result<Metadata<'a>, TokenParseError<Located<AST<'a>>>> {
+        Ok(match expr {
+            AST::StringLiteral(s) => Metadata::String(s.to_string()),
+            AST::Keyword(k) => Metadata::Keyword(k.clone()),
+            AST::Symbol(s) => Metadata::Symbol(s.clone()),
+            AST::Map(map) => Metadata::Map(map.clone()),
+            _ => todo!()
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunctionDecl<'a> {
     pub name: String,
-    pub arguments: Vec<(Located<Binding>, Option<Located<Type>>)>,
+    pub meta_data: Vec<Metadata<'a>>,
+    pub arguments: Vec<Located<Argument>>,
     pub return_type: Option<Located<Type>>,
 }
 
@@ -158,7 +193,7 @@ pub struct DefSchema {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Function<'a> {
-    pub decl: FunctionDecl,
+    pub decl: FunctionDecl<'a>,
     pub exprs: Vec<Located<Expression<'a>>>,
 }
 

@@ -5,7 +5,7 @@ use anyhow::Result;
 use location::{Located, Span};
 use parser::{
     ast::{
-        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector},
+        parser::{float_literal, integer_literal, keyword, list, string_literal, symbol, vector, metadata},
         Keyword, Symbol,
     },
     AST,
@@ -14,11 +14,11 @@ use paste::paste;
 use semantic_ast::*;
 use token_combinator::{
     alt, context, many0_until_end, map, map_res, opt, permutation, success, tuple, TokenParseError,
-    TokenParseErrorKind, TokenParseResult, TokenParser,
+    TokenParseErrorKind, TokenParseResult, TokenParser, many0,
 };
 
-type ASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>;
-type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, AST<'a>, O, Located<AST<'a>>>;
+type ASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, Located<O>>;
+type NotLocatedASTParseResult<'a, O> = TokenParseResult<'a, Located<AST<'a>>, O>;
 
 macro_rules! specific_symbol {
     ($name: tt, $sym_name: expr, $expect: expr) => {
@@ -34,7 +34,7 @@ macro_rules! specific_symbol {
                             Err(TokenParseError {
                                 errors: vec![TokenParseErrorKind::Expects {
                                     expects: $expect,
-                                    found: forms[0].value.clone(),
+                                    found: forms[0].clone(),
                                 }],
                                 tokens_consumed: 0,
                             })
@@ -70,7 +70,7 @@ macro_rules! specific_keyword {
                             Err(TokenParseError {
                                 errors: vec![TokenParseErrorKind::Expects {
                                     expects: $expect,
-                                    found: forms[0].value.clone(),
+                                    found: forms[0].clone(),
                                 }],
                                 tokens_consumed: 0,
                             })
@@ -89,8 +89,8 @@ specific_keyword!(all, "all", ":all");
 specific_keyword!(import, "impot", ":import");
 
 fn located<'a, O>(
-    mut parser: impl TokenParser<'a, AST<'a>, O, Located<AST<'a>>>,
-) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, AST<'a>, Located<O>, Located<AST<'a>>>
+    mut parser: impl TokenParser<'a, Located<AST<'a>>, O>,
+) -> impl FnMut(&'a [Located<AST<'a>>]) -> TokenParseResult<'a, Located<AST<'a>>, Located<O>>
 {
     move |forms: &'a [Located<AST<'a>>]| {
         if forms.is_empty() {
@@ -127,7 +127,9 @@ fn parse_require<'a>(forms_in_ns_list: &'a [Located<AST<'a>>]) -> ASTParseResult
     ) -> ASTParseResult<'a, NamespaceOnly> {
         if forms_in_vec.len() != 0 {
             return Err(TokenParseError {
-                errors: vec![TokenParseErrorKind::Other("Invalid require vector")],
+                errors: vec![TokenParseErrorKind::Other(
+                    "Invalid require vector".to_owned(),
+                )],
                 tokens_consumed: 0,
             });
         }
@@ -263,7 +265,7 @@ fn parse_annotation<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Typ
         return Err(TokenParseError {
             errors: vec![TokenParseErrorKind::Expects {
                 expects: "-",
-                found: forms[0].value.clone(),
+                found: forms[0].clone(),
             }],
             tokens_consumed: 0,
         });
@@ -368,9 +370,18 @@ fn parse_expression<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Exp
                 Ok((rest, kvs)) => {
                     let (_, map_expr) = map(
                         many0_until_end(tuple((parse_expression, parse_expression))),
-                        |kvs_expr| Expression::MapLiteral(kvs_expr),
+                        |kvs_exprs| Expression::MapLiteral(MapLiteral {
+                            kvs_exprs
+                        }),
                     )(kvs)?;
                     Ok((rest, map_expr))
+                }
+                Err(err) => Err(err),
+            }),
+            map_res(parser::ast::parser::anonymous_fn, |res| match res {
+                Ok((rest, forms_in_list)) => {
+                    let (_, exprs) = many0_until_end(parse_expression)(&forms_in_list)?;
+                    Ok((rest, Expression::AnonymousFn(exprs)))
                 }
                 Err(err) => Err(err),
             }),
@@ -387,7 +398,29 @@ fn parse_expression_and_box<'a>(
     located(map(parse_expression, |expr| Box::new(expr.value)))(forms)
 }
 
+pub fn parse_metas<'a>(forms: &'a [Located<AST<'a>>]) -> NotLocatedASTParseResult<'a, Vec<Located<Metadata>>> {
+    many0(located(map_res(metadata, |meta| match meta {
+        Ok((rest, ast)) => Ok((rest, Metadata::try_from_ast(ast)?)),
+        Err(err) => Err(err),
+    })))(forms)
+}
+
 pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, FunctionDecl> {
+    fn parse_argument<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<'a, Argument> {
+        located(map(
+            tuple((
+                parse_metas,
+                opt(parser::ast::parser::and),
+                parse_binding,
+                opt(parse_annotation),
+            )),
+            |(metas, opt_and, binding, ty_annotation)| Argument {
+                is_var_arg: opt_and.is_some(),
+                binding,
+                ty_annotation,
+            },
+        ))(forms)
+    }
     context(
         "function definition",
         located(map(
@@ -398,19 +431,17 @@ pub fn parse_function_decl<'a>(forms: &'a [Located<AST<'a>>]) -> ASTParseResult<
                 opt(parse_annotation),
                 map_res(vector, |res| match res {
                     Ok((rest, args_vec)) => {
-                        let (_, args) = many0_until_end(tuple((
-                            parse_binding,
-                            opt(parse_annotation),
-                        )))(&args_vec)?;
+                        let (_, args) = many0_until_end(parse_argument)(&args_vec)?;
                         Ok((rest, args))
                     }
                     Err(err) => Err(err),
                 }),
             )),
-            |(_, name_sym, _, opt_return_type, args)| FunctionDecl {
+            |(_, name_sym, _, , opt_return_type, args)| FunctionDecl {
                 name: name_sym.name.to_string(),
                 return_type: opt_return_type,
                 arguments: args,
+                meta_data
             },
         )),
     )(forms)
@@ -524,9 +555,9 @@ fn parse_source_impl<'a>(toplevel_forms: &'a [Located<AST<'a>>]) -> ASTParseResu
 }
 
 pub fn parse_source<'a>(
-    root_ast: &'a Located<AST<'a>>,
-) -> Result<Source, TokenParseError<AST<'a>>> {
-    if let AST::Root(toplevel_forms) = &root_ast.value {
+    root_ast: &'a AST<'a>,
+) -> Result<Source, TokenParseError<Located<AST<'a>>>> {
+    if let AST::Root(toplevel_forms) = &root_ast {
         match parse_source_impl(&toplevel_forms) {
             Ok((_, source)) => {
                 return Ok(source.value);
