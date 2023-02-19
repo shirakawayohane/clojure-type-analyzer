@@ -8,9 +8,7 @@ pub use token_combinator_macros::TokenParser;
 pub use tuple::tuple;
 
 // T stands for Token
-// K stands for Kind
 // O stands for Output
-// T stands for Trapper
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenParseErrorKind<T> {
